@@ -1,4 +1,6 @@
 #include "NoiseGeneratorShader.h"
+#include <stdlib.h>
+#include <time.h>
 
 NoiseGeneratorShader::NoiseGeneratorShader(ID3D11Device* device, HWND hwnd, int w, int h) : BaseShader(device, hwnd)
 {
@@ -50,7 +52,7 @@ void NoiseGeneratorShader::createOutputUAV()
 	// Output texture
 	D3D11_UNORDERED_ACCESS_VIEW_DESC descUAV;
 	ZeroMemory(&descUAV, sizeof(descUAV));
-	descUAV.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; ;// DXGI_FORMAT_UNKNOWN;
+	descUAV.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // DXGI_FORMAT_UNKNOWN;
 	descUAV.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
 	descUAV.Texture2D.MipSlice = 0;
 	renderer->CreateUnorderedAccessView(m_tex, &descUAV, &m_uavAccess);
@@ -95,13 +97,17 @@ void NoiseGeneratorShader::initShader(const wchar_t* cfile, const wchar_t* blank
 
 void NoiseGeneratorShader::GenerateWorleyNoisePoints()
 {	
+	// Set a random seed
+	srand(time(NULL));
+
 	float cellSize = 1.f / NUM_CELLS;
 
 	for (size_t x = 0; x < NUM_CELLS; x++)
 	{
 		for (size_t y = 0; y < NUM_CELLS; y++)
 		{
-			XMFLOAT2 randomOffset = XMFLOAT2(0.1f * cellSize, 0.1f * cellSize);
+			XMFLOAT2 randomFloats = XMFLOAT2((rand() / (double)RAND_MAX), (rand() / (double)RAND_MAX));
+			XMFLOAT2 randomOffset = XMFLOAT2(randomFloats.x * cellSize, randomFloats.y * cellSize);
 			XMFLOAT2 cellCorner = XMFLOAT2(x * cellSize, y * cellSize);
 
 			int index = x + NUM_CELLS * (y * NUM_CELLS);

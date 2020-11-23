@@ -73,7 +73,7 @@
     <FxCompile Include="shaders\simpleRayMarcher_cs.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
-    <FxCompile Include="noiseGen_cs.hlsl">
+    <FxCompile Include="shaders\noiseGen_cs.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>

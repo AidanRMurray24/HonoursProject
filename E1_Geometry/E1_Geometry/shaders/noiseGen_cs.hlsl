@@ -25,7 +25,7 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     float minDist = 1;
     for (int i = 0; i < TOTAL_CELLS; i++)
     {
-        float dist = length(normalize(points[i].xy - uv));
+        float dist = length(points[i].xy - uv);
 
         if (dist < minDist)
         {
@@ -33,6 +33,6 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
         }
     }
 
-    col.xyz = minDist;
+    col.xyz = 1 - minDist;
     Result[id.xy] = col;
 }
