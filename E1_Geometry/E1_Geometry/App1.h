@@ -8,6 +8,7 @@
 #include "SimpleRayMarcherShader.h"
 #include "TextureShader.h"
 #include "NoiseGeneratorShader.h"
+#include "GPUTimer.h"
 
 class App1 : public BaseApplication
 {
@@ -46,7 +47,12 @@ private:
 	
 	// Lights
 	Light* light;
-	
+
+	// Timers
+	GPUTimer* noiseTimer;
+	float elapsedTime;
+	double timetaken = 9;
+	bool textureGenerated = false;
 };
 
 #endif

@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <time.h>
 
-NoiseGeneratorShader::NoiseGeneratorShader(ID3D11Device* device, HWND hwnd, int w, int h) : BaseShader(device, hwnd)
+NoiseGeneratorShader::NoiseGeneratorShader(ID3D11Device* _device, HWND hwnd, int w, int h) : BaseShader(_device, hwnd)
 {
+	device = _device;
 	sWidth = w;
 	sHeight = h;
 	GenerateWorleyNoisePoints();
@@ -27,6 +28,9 @@ void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Sh
 	pointPtr = (PointBufferType*)mappedResource.pData;
 	for (size_t i = 0; i < TOTAL_CELLS; i++)
 		pointPtr->points[i] = XMFLOAT4(points[i].x, points[i].y, 0, 0);
+	pointPtr->cellInfo.x = NUM_CELLS;
+	pointPtr->cellInfo.y = TOTAL_CELLS;
+	pointPtr->cellInfo.z = 1.f / NUM_CELLS;
 	dc->Unmap(pointBuffer, 0);
 	dc->CSSetConstantBuffers(0, 1, &pointBuffer);
 }
@@ -109,8 +113,6 @@ void NoiseGeneratorShader::GenerateWorleyNoisePoints()
 			XMFLOAT2 randomFloats = XMFLOAT2((rand() / (double)RAND_MAX), (rand() / (double)RAND_MAX));
 			XMFLOAT2 randomOffset = XMFLOAT2(randomFloats.x * cellSize, randomFloats.y * cellSize);
 			XMFLOAT2 cellCorner = XMFLOAT2(x * cellSize, y * cellSize);
-
-			int index = x + NUM_CELLS * (y * NUM_CELLS);
 			points.push_back(XMFLOAT2(cellCorner.x + randomOffset.x, cellCorner.y + randomOffset.y));
 		}
 	}

@@ -164,6 +164,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="App1.cpp" />
+    <ClCompile Include="GPUTimer.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="ManipulationShader.cpp" />
     <ClCompile Include="NoiseGeneratorShader.cpp" />
@@ -172,6 +173,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App1.h" />
+    <ClInclude Include="GPUTimer.h" />
     <ClInclude Include="ManipulationShader.h" />
     <ClInclude Include="NoiseGeneratorShader.h" />
     <ClInclude Include="SimpleRayMarcherShader.h" />

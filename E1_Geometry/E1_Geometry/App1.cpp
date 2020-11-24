@@ -17,12 +17,18 @@ App1::App1()
 	// Meshes
 	planeMesh = nullptr;
 	screenOrthoMesh = nullptr;
+	noiseGenOrthoMesh = nullptr;
 
 	// Lights
 	light = nullptr;
 
+	// Timers
+	noiseTimer = nullptr;
+	elapsedTime = 0;
+
 	// Floats
 	noiseGenTexRes = 512;
+
 }
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
@@ -45,6 +51,9 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	planeMesh = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext());
 	screenOrthoMesh = new OrthoMesh(renderer->getDevice(), renderer->getDeviceContext(), screenWidth, screenHeight);
 	noiseGenOrthoMesh = new OrthoMesh(renderer->getDevice(), renderer->getDeviceContext(), noiseGenTexRes, noiseGenTexRes);
+
+	// Initialise timers
+	noiseTimer = new GPUTimer(renderer->getDevice(), renderer->getDeviceContext());
 
 	// Initialise Lights
 	light = new Light;
@@ -123,6 +132,15 @@ App1::~App1()
 			rayMarchRT = 0;
 		}
 	}
+
+	// Timers
+	{
+		if (noiseTimer)
+		{
+			delete noiseTimer;
+			noiseTimer = 0;
+		}
+	}
 }
 
 
@@ -148,7 +166,11 @@ bool App1::frame()
 
 bool App1::render()
 {
-	NoiseGenPass();
+	if (!textureGenerated)
+	{
+		textureGenerated = true;
+		NoiseGenPass();
+	}
 	GeometryPass();
 	RayMarchPass();
 	FinalPass();
@@ -163,8 +185,10 @@ void App1::NoiseGenPass()
 
 	// Generate noise texture
 	noiseGenShader->setShaderParameters(renderer->getDeviceContext(), noiseGenRT->getShaderResourceView());
+	noiseTimer->StartTimer();
 	noiseGenShader->compute(renderer->getDeviceContext(), ceil(noiseGenTexRes / 8.0f), ceil(noiseGenTexRes / 8.0f), 1);
 	noiseGenShader->unbind(renderer->getDeviceContext());
+	noiseTimer->StopTimer();
 }
 
 void App1::GeometryPass()
@@ -238,7 +262,15 @@ void App1::gui()
 	renderer->getDeviceContext()->DSSetShader(NULL, NULL, 0);
 
 	// Build UI
+	
+	elapsedTime += timer->getTime();
+	if (elapsedTime > 5)
+	{
+		elapsedTime = 0;
+		timetaken = noiseTimer->GetTimeTaken();
+	}
 	ImGui::Text("FPS: %.2f", timer->getFPS());
+	ImGui::Text("Noise Compute-time(ms): %.10f", timetaken * 1000);
 	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
 
 	// Render UI

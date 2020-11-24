@@ -8,6 +8,7 @@ RWTexture2D<float4> Result : register(u0);
 cbuffer PointBuffer : register(b0)
 {
     float4 points[TOTAL_CELLS];
+    float4 cellInfo; // x = Num cells, y = Total Cells, z = Cell size
 };
 
 [numthreads(8, 8, 1)]
@@ -22,17 +23,16 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     float4 col = Source[id.xy];
     Result[id.xy] = col;
 
-    float minDist = 1;
-    for (int i = 0; i < TOTAL_CELLS; i++)
+    float minSqrDist = 1;
+    for (int i = 0; i < cellInfo.y; i++)
     {
-        float dist = length(points[i].xy - uv);
-
-        if (dist < minDist)
-        {
-            minDist = dist;
-        }
+        float2 dirVector = points[i].xy - uv;
+        minSqrDist = min(minSqrDist, dot(dirVector, dirVector));
     }
 
-    col.xyz = 1 - minDist;
-    Result[id.xy] = col;
+    float2 cellSize = float2(cellInfo.z, cellInfo.z);
+    float maxDist = sqrt(dot(cellSize, cellSize));
+
+    col.xyz = sqrt(minSqrDist) / maxDist;
+    Result[id.xy] = 1 - col;
 }

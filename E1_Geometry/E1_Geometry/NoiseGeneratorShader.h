@@ -13,6 +13,7 @@ private:
 	struct PointBufferType
 	{
 		XMFLOAT4 points[TOTAL_CELLS];
+		XMFLOAT4 cellInfo; // x = Num cells, y = Total Cells, z = Cell size
 	};
 
 public:
@@ -41,5 +42,7 @@ private:
 
 	ID3D11Buffer* pointBuffer;
 	std::vector<XMFLOAT2> points;
+
+	ID3D11Device* device;
 };
 
