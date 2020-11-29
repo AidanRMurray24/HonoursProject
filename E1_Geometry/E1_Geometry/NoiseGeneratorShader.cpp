@@ -4,6 +4,7 @@
 
 NoiseGeneratorShader::NoiseGeneratorShader(ID3D11Device* _device, HWND hwnd, int w, int h) : BaseShader(_device, hwnd)
 {
+	pointsSeed = 0;
 	device = _device;
 	sWidth = w;
 	sHeight = h;
@@ -18,12 +19,15 @@ NoiseGeneratorShader::~NoiseGeneratorShader()
 
 void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1)
 {
+	// Pass the source texture and the texture to be modified to the shader
 	dc->CSSetShaderResources(0, 1, &texture1);
 	dc->CSSetUnorderedAccessViews(0, 1, &m_uavAccess, 0);
 
+	// Create a mapped resource object to map the data from the buffers to and pass them into the shader
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
-	PointBufferType* pointPtr;
 
+	// Send the information from the point buffer to the shader
+	PointBufferType* pointPtr;
 	dc->Map(pointBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	pointPtr = (PointBufferType*)mappedResource.pData;
 	for (size_t i = 0; i < TOTAL_CELLS; i++)
@@ -85,6 +89,7 @@ void NoiseGeneratorShader::unbind(ID3D11DeviceContext* dc)
 
 void NoiseGeneratorShader::initShader(const wchar_t* cfile, const wchar_t* blank)
 {
+	// Load the shader and create the views
 	loadComputeShader(cfile);
 	createOutputUAV();
 
@@ -102,14 +107,17 @@ void NoiseGeneratorShader::initShader(const wchar_t* cfile, const wchar_t* blank
 void NoiseGeneratorShader::GenerateWorleyNoisePoints()
 {	
 	// Set a random seed
-	srand(time(NULL));
+	srand(pointsSeed);
 
+	// Get the cellsize by dividing the number of cells by one as textures go from 0 to 1
 	float cellSize = 1.f / NUM_CELLS;
 
+	// Loop through all the cells
 	for (size_t x = 0; x < NUM_CELLS; x++)
 	{
 		for (size_t y = 0; y < NUM_CELLS; y++)
 		{
+			// Find a random point inside the current cell and push it to the vector
 			XMFLOAT2 randomFloats = XMFLOAT2((rand() / (double)RAND_MAX), (rand() / (double)RAND_MAX));
 			XMFLOAT2 randomOffset = XMFLOAT2(randomFloats.x * cellSize, randomFloats.y * cellSize);
 			XMFLOAT2 cellCorner = XMFLOAT2(x * cellSize, y * cellSize);

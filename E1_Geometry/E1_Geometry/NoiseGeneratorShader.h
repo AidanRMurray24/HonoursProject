@@ -22,26 +22,28 @@ public:
 
 	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1);
 	void createOutputUAV();
-	ID3D11ShaderResourceView* getSRV() { return m_srvTexOutput; };
 	void unbind(ID3D11DeviceContext* dc);
+	inline ID3D11ShaderResourceView* getSRV() { return m_srvTexOutput; }
 
 private:
 	void initShader(const wchar_t* cfile, const wchar_t* blank);
 	void GenerateWorleyNoisePoints();
 
-	ID3D11ShaderResourceView* srv;
-	ID3D11UnorderedAccessView* uav;
-
-	// texture set
+	// Texture set
 	ID3D11Texture2D* m_tex;
-	ID3D11UnorderedAccessView* m_uavAccess;
 	ID3D11ShaderResourceView* m_srvTexOutput;
+	ID3D11UnorderedAccessView* m_uavAccess;
 
+	// Buffers
+	ID3D11Buffer* pointBuffer;
+
+	// Random Points
+	std::vector<XMFLOAT2> points;
+	int pointsSeed;
+
+	// Screen Info
 	int sWidth;
 	int sHeight;
-
-	ID3D11Buffer* pointBuffer;
-	std::vector<XMFLOAT2> points;
 
 	ID3D11Device* device;
 };

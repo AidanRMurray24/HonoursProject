@@ -36,11 +36,11 @@
     <ClCompile Include="TextureShader.cpp">
       <Filter>Source Files\Shaders</Filter>
     </ClCompile>
-    <ClCompile Include="NoiseGeneratorShader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GPUTimer.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NoiseGeneratorShader.cpp">
+      <Filter>Source Files\Shaders</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

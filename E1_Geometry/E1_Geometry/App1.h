@@ -52,7 +52,9 @@ private:
 	GPUTimer* noiseTimer;
 	float elapsedTime;
 	double timetaken = 9;
-	bool textureGenerated = false;
+
+	bool textureGenerated;
+	bool showWorleyNoiseTexture;
 };
 
 #endif

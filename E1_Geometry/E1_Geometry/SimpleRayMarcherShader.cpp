@@ -1,7 +1,8 @@
 #include "SimpleRayMarcherShader.h"
 
-SimpleRayMarcherShader::SimpleRayMarcherShader(ID3D11Device* device, HWND hwnd, int w, int h, Camera* cam) : BaseShader(device, hwnd)
+SimpleRayMarcherShader::SimpleRayMarcherShader(ID3D11Device* device, HWND hwnd, int w, int h, Camera* cam, Light* _light) : BaseShader(device, hwnd)
 {
+	light = _light;
 	camera = cam;
 	deviceObject = device;
 	sWidth = w;
@@ -13,18 +14,40 @@ SimpleRayMarcherShader::~SimpleRayMarcherShader()
 {
 }
 
-void SimpleRayMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1)
+void SimpleRayMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1, const XMMATRIX&projectionMatrix)
 {
+	// Pass the source texture and the texture to be modified to the shader
 	dc->CSSetShaderResources(0, 1, &texture1);
 	dc->CSSetUnorderedAccessViews(0, 1, &m_uavAccess, 0);
 
+	// Create a mapped resource object to map the data from the buffers to and pass them into the shader
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
+
+	// Get the inverse of the view and projection matrices to be used in the shader
+	XMMATRIX invView, invProjection;
+	invView = XMMatrixInverse(nullptr, camera->getViewMatrix());
+	invProjection = XMMatrixInverse(nullptr, projectionMatrix);
+
+	// Send the information from the camera buffer to the shader
 	CameraBufferType* camPtr;
 	dc->Map(cameraBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	camPtr = (CameraBufferType*)mappedResource.pData;
-	camPtr->_WorldSpaceCameraPos = camera->getPosition();
+	camPtr->invViewMatrix = invView;
+	camPtr->invProjectionMatrix = invProjection;
+	camPtr->cameraPos = camera->getPosition();
 	dc->Unmap(cameraBuffer, 0);
 	dc->CSSetConstantBuffers(0, 1, &cameraBuffer);
+
+	// Send the information from the light buffer to the shader
+	LightBufferType* lightPtr;
+	dc->Map(lightBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	lightPtr = (LightBufferType*)mappedResource.pData;
+	lightPtr->position = XMFLOAT4(light->getPosition().x, light->getPosition().y, light->getPosition().z, 0);
+	lightPtr->direction = XMFLOAT4(light->getDirection().x, light->getDirection().y, light->getDirection().z, 0);
+	lightPtr->colour = XMFLOAT4(light->getDiffuseColour().x, light->getDiffuseColour().y, light->getDiffuseColour().z, 0);
+	lightPtr->intensityTypeAndAngle = XMFLOAT4(1.0f, 1.0f, 0.0f, 0.0f);
+	dc->Unmap(lightBuffer, 0);
+	dc->CSSetConstantBuffers(1, 1, &lightBuffer);
 }
 
 void SimpleRayMarcherShader::createOutputUAV()
@@ -60,16 +83,6 @@ void SimpleRayMarcherShader::createOutputUAV()
 	srvDesc.Texture2D.MostDetailedMip = 0;
 	srvDesc.Texture2D.MipLevels = 1;
 	renderer->CreateShaderResourceView(m_tex, &srvDesc, &m_srvTexOutput);
-
-	// Camera buffer
-	D3D11_BUFFER_DESC camBufferDesc;
-	camBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	camBufferDesc.ByteWidth = sizeof(CameraBufferType);
-	camBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	camBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	camBufferDesc.MiscFlags = 0;
-	camBufferDesc.StructureByteStride = 0;
-	renderer->CreateBuffer(&camBufferDesc, NULL, &cameraBuffer);
 }
 
 void SimpleRayMarcherShader::unbind(ID3D11DeviceContext* dc)
@@ -89,6 +102,26 @@ void SimpleRayMarcherShader::initShader(const wchar_t* cfile, const wchar_t* bla
 {
 	loadComputeShader(cfile);
 	createOutputUAV();
+
+	// Init camera buffer
+	D3D11_BUFFER_DESC camBufferDesc;
+	camBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	camBufferDesc.ByteWidth = sizeof(CameraBufferType);
+	camBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	camBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	camBufferDesc.MiscFlags = 0;
+	camBufferDesc.StructureByteStride = 0;
+	renderer->CreateBuffer(&camBufferDesc, NULL, &cameraBuffer);
+
+	// Init light buffer
+	D3D11_BUFFER_DESC lightBufferDesc;
+	lightBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
+	lightBufferDesc.ByteWidth = sizeof(LightBufferType);
+	lightBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	lightBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	lightBufferDesc.MiscFlags = 0;
+	lightBufferDesc.StructureByteStride = 0;
+	renderer->CreateBuffer(&lightBufferDesc, NULL, &lightBuffer);
 }
 
 HRESULT SimpleRayMarcherShader::CreateStructuredBuffer(ID3D11Device* pDevice, UINT uElementSize, UINT uCount, void* pInitData, ID3D11Buffer** ppBufOut)
