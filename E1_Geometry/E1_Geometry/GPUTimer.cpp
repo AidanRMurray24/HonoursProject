@@ -39,21 +39,15 @@ double GPUTimer::GetTimeTaken()
 {
 	// Get back the data from the queries
 	UINT64 startData = 0;
-	HRESULT result = deviceContext->GetData(startQuery, &startData, sizeof(UINT64), 0);
-	switch (result)
-	{
-	default:
-		break;
-	}
-
+	deviceContext->GetData(startQuery, &startData, sizeof(UINT64), 0);
 	UINT64 endData = 0;
 	deviceContext->GetData(endQuery, &endData, sizeof(UINT64), 0);
 	D3D11_QUERY_DATA_TIMESTAMP_DISJOINT disjointData;
 	deviceContext->GetData(disjointQuery, &disjointData, sizeof(D3D11_QUERY_DATA_TIMESTAMP_DISJOINT), 0);
 
 	// Subtract the end timestamp value from the start timestamp value to get the number of ticks
-	UINT64 elaspsedFrames = endData - startData;
+	UINT64 elapsedFrames = endData - startData;
 
-	// Devide the number of frames by the frequency to get the time taken in seconds
-	return (double)elaspsedFrames / (double)disjointData.Frequency;
+	// Divide the number of frames by the frequency to get the time taken in seconds
+	return (double)elapsedFrames / (double)disjointData.Frequency;
 }

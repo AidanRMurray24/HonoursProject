@@ -29,6 +29,10 @@ App1::App1()
 	// Floats
 	noiseGenTexRes = 512;
 
+	// Bools
+	textureGenerated = false;
+	showWorleyNoiseTexture = false;
+
 }
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
@@ -41,9 +45,15 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	textureMgr->loadTexture(L"TerrainColour", L"res/TerrainColour.png");
 	textureMgr->loadTexture(L"heightMap", L"res/TerrainHeightMap.png");
 
+	// Initialise Lights
+	light = new Light;
+	light->setPosition(0, 0, 0);
+	light->setDiffuseColour(1.0f, 1.0f, 1.0f, 1.0f);
+	light->setDirection(0.7f, -0.7f, 0.0f);
+
 	// Initialise Shaders
 	manipulationShader = new ManipulationShader(renderer->getDevice(), hwnd);
-	rayMarcherShader = new SimpleRayMarcherShader(renderer->getDevice(), hwnd, screenWidth, screenHeight, camera);
+	rayMarcherShader = new SimpleRayMarcherShader(renderer->getDevice(), hwnd, screenWidth, screenHeight, camera, light);
 	texShader = new TextureShader(renderer->getDevice(), hwnd);
 	noiseGenShader = new NoiseGeneratorShader(renderer->getDevice(), hwnd, noiseGenTexRes, noiseGenTexRes);
 
@@ -54,11 +64,6 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 
 	// Initialise timers
 	noiseTimer = new GPUTimer(renderer->getDevice(), renderer->getDeviceContext());
-
-	// Initialise Lights
-	light = new Light;
-	light->setDiffuseColour(1.0f, 1.0f, 1.0f, 1.0f);
-	light->setDirection(0.7f, -0.7f, 0.0f);
 
 	// Initialise Render Textures
 	rayMarchRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 100.f);
@@ -161,6 +166,14 @@ bool App1::frame()
 		return false;
 	}
 
+	// Re-calculate compute time every 5 seconds
+	elapsedTime += timer->getTime();
+	if (elapsedTime > 5)
+	{
+		elapsedTime = 0;
+		timetaken = noiseTimer->GetTimeTaken();
+	}
+
 	return true;
 }
 
@@ -215,7 +228,7 @@ void App1::GeometryPass()
 void App1::RayMarchPass()
 {
 	// Raymarching pass using render texture of the rendered scene
-	rayMarcherShader->setShaderParameters(renderer->getDeviceContext(), rayMarchRT->getShaderResourceView());
+	rayMarcherShader->setShaderParameters(renderer->getDeviceContext(), rayMarchRT->getShaderResourceView(), renderer->getProjectionMatrix());
 	rayMarcherShader->compute(renderer->getDeviceContext(), ceil(sWidth / 8.0f), ceil(sHeight / 8.0f), 1);
 	rayMarcherShader->unbind(renderer->getDeviceContext());
 }
@@ -241,9 +254,12 @@ void App1::FinalPass()
 	texShader->render(renderer->getDeviceContext(), screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with noise texture
-	noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
-	texShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, noiseGenShader->getSRV());
-	texShader->render(renderer->getDeviceContext(), noiseGenOrthoMesh->getIndexCount());
+	if (showWorleyNoiseTexture)
+	{
+		noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
+		texShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, noiseGenShader->getSRV());
+		texShader->render(renderer->getDeviceContext(), noiseGenOrthoMesh->getIndexCount());
+	}
 
 	renderer->setZBuffer(true);
 
@@ -262,19 +278,12 @@ void App1::gui()
 	renderer->getDeviceContext()->DSSetShader(NULL, NULL, 0);
 
 	// Build UI
-	
-	elapsedTime += timer->getTime();
-	if (elapsedTime > 5)
-	{
-		elapsedTime = 0;
-		timetaken = noiseTimer->GetTimeTaken();
-	}
 	ImGui::Text("FPS: %.2f", timer->getFPS());
-	ImGui::Text("Noise Compute-time(ms): %.10f", timetaken * 1000);
+	ImGui::Text("Noise Compute-time(ms): %.5f", timetaken * 1000);
 	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
+	ImGui::Checkbox("Show Worley Noise Texture", &showWorleyNoiseTexture);
 
 	// Render UI
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
-

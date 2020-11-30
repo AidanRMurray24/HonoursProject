@@ -44,39 +44,52 @@ Ray CreateCameraRay(float2 uv) {
 
 float GetDist(float3 p)
 {
-    float4 sphere = float4(0,0,0,1);
+    // Create a sphere at position 0,0,0 with a radius of 1
+    float4 sphere = float4(0,10,0,1);
 
+    // Calculate the distance to the sphere using the current ray marched point
     float sphereDist = length(p - sphere.xyz) - sphere.w;
 
+    // Set the final distance to the sphere distance as there are no other objects for now
     float d = sphereDist;
     return d;
 }
 
 float RayMarch(float3 ro, float3 rd)
 {
+    // Iterate for a max number of steps
     float dO = 0.0f;
     for (int i = 0; i < MAX_STEPS; i++)
     {
+        // March the ray into the scene
         float3 p = ro + dO * rd;
         float dS = GetDist(p);
         dO += dS;
+
+        // If the distance to scene is smaller than surface value or
+        // If the distance from the origin in greater than the max distance set then break
         if (dS < SURF_DIST || dO > MAX_DIST) break;
     }
+
+    // Return the distance the ray traveled from the origin
     return dO;
 }
 
 float3 GetNormal(float3 p)
 {
+    // Get the distance to the scene at the point
     float d = GetDist(p);
-    float2 e = float2(.01, 0);
+    float2 epsilon = float2(.01f, 0); // Very small amount to move
 
+    // Calculate the normal by sampling the distance to the scene slighly over in the x, y and z and finding the slope
     float3 n = d - float3
     (
-        GetDist(p - e.xyy),
-        GetDist(p - e.yxy),
-        GetDist(p - e.yyx)
+        GetDist(p - epsilon.xyy),
+        GetDist(p - epsilon.yxy),
+        GetDist(p - epsilon.yyx)
     );
 
+    // Noramilise the normal vector before returning it
     return normalize(n);
 }
 
@@ -122,13 +135,6 @@ float3 CalculateSpotLight(float3 p)
 
 float GetLight(float3 p)
 {
-    /*float3 lightPos = float3(0, 5, 6);
-    float3 l = normalize(lightPos - p);
-    float3 n = GetNormal(p);
-
-    float dif = clamp(dot(n, l), 0., 1.);
-    return dif;*/
-
     float3 finalColor = 0;
     float3 ambientLight = float3(0.2, 0.2, 0.2);
 
