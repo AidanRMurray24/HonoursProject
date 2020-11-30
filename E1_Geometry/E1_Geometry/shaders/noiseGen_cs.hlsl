@@ -23,6 +23,7 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     float4 col = Source[id.xy];
     Result[id.xy] = col;
 
+    // Find the closest point to the current texture pixel
     float minSqrDist = 1;
     for (int i = 0; i < cellInfo.y; i++)
     {
@@ -30,9 +31,11 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
         minSqrDist = min(minSqrDist, dot(dirVector, dirVector));
     }
 
+    // Calculate the maximum distance by getting the distance across the diagonal of a cell
     float2 cellSize = float2(cellInfo.z, cellInfo.z);
     float maxDist = sqrt(dot(cellSize, cellSize));
 
+    // Normalise the distance by dividing it by the maximum distance
     col.xyz = sqrt(minSqrDist) / maxDist;
     Result[id.xy] = 1 - col;
 }
