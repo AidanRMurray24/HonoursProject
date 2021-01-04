@@ -11,25 +11,79 @@ cbuffer PointBuffer : register(b0)
     float4 cellInfo; // x = Num cells, y = Total Cells, z = Cell size
 };
 
+static const int2 cellOffsets[] =
+{
+    // Centre
+    int2(0,0),
+
+    // Ring around centre
+    int2(-1, 1),
+    int2(0, 1),
+    int2(1, 1),
+    int2(-1, 0),
+    int2(1, 0),
+    int2(-1, -1),
+    int2(0, -1),
+    int2(1, -1)
+};
+
+float maxComponent(float2 vec) {
+    return max(vec.x, vec.y);
+}
+
+float minComponent(float2 vec) {
+    return min(vec.x, vec.y);
+}
+
 [numthreads(8, 8, 1)]
 void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
 {
     // Get the UVs of the texture
     float2 resolution = float2(0, 0);
     Result.GetDimensions(resolution.x, resolution.y);
-    float2 uv = id / resolution;
+    float2 uv = id / (float)resolution;
 
     // Set the colour to the source render texture initially
     float4 col = Source[id.xy];
     Result[id.xy] = col;
 
-    // Find the closest point to the current texture pixel
+    // Find which cell the current pixel occupies
+    int2 cellID = floor(uv * NUM_CELLS);
+
+    // Loop through the adjacent cells to find the closest point to the pixel
     float minSqrDist = 1;
-    for (int i = 0; i < cellInfo.y; i++)
+    for (int i = 0; i < 9; i++)
     {
-        float2 dirVector = points[i].xy - uv;
-        minSqrDist = min(minSqrDist, dot(dirVector, dirVector));
+        // Calculate the current adjacent cell to check
+        int2 adjCellID = cellID + cellOffsets[i];
+
+        // If the cell is outside the texture wrap around to the other side
+        if (minComponent((float2)adjCellID) == -1 || maxComponent((float2)adjCellID) == NUM_CELLS)
+        {
+            int2 wrappedID = (adjCellID + NUM_CELLS) % (uint3)NUM_CELLS;
+            int adjCellIndex = wrappedID.x + NUM_CELLS * (wrappedID.y * NUM_CELLS);
+            float3 wrappedPoint = points[adjCellIndex];
+
+            for (int wrapOffsetIndex = 0; wrapOffsetIndex < 9; wrapOffsetIndex++)
+            {
+                float2 dist = (uv - (wrappedPoint + cellOffsets[wrapOffsetIndex]));
+                minSqrDist = min(minSqrDist, dot(dist, dist));
+            }
+        }
+        else
+        {
+            int adjCellIndex = adjCellID.x + NUM_CELLS * (adjCellID.y * NUM_CELLS);
+            float2 dist = uv - points[adjCellIndex];
+            minSqrDist = min(minSqrDist, dot(dist, dist));
+        }
     }
+
+    //// Find the closest point to the current texture pixel
+    //for (int i = 0; i < TOTAL_CELLS; i++)
+    //{
+    //    float2 dirVector = points[i].xy - uv;
+    //    minSqrDist = min(minSqrDist, dot(dirVector, dirVector));
+    //}
 
     // Calculate the maximum distance by getting the distance across the diagonal of a cell
     float2 cellSize = float2(cellInfo.z, cellInfo.z);

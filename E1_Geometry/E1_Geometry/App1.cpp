@@ -168,7 +168,7 @@ bool App1::frame()
 
 	// Re-calculate compute time every 5 seconds
 	elapsedTime += timer->getTime();
-	if (elapsedTime > 5)
+	if (elapsedTime > 1)
 	{
 		elapsedTime = 0;
 		timetaken = noiseTimer->GetTimeTaken();
