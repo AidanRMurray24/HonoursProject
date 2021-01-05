@@ -8,7 +8,7 @@ RWTexture2D<float4> Result : register(u0);
 cbuffer PointBuffer : register(b0)
 {
     float4 points[TOTAL_CELLS];
-    float4 cellInfo; // x = Num cells, y = Total Cells, z = Cell size
+    float4 cellInfo; // x = Num cells, y = Total Cells, z = Cell size, w = tile value
 };
 
 static const int2 cellOffsets[] =
@@ -17,14 +17,14 @@ static const int2 cellOffsets[] =
     int2(0,0),
 
     // Ring around centre
-    int2(-1, 1),
-    int2(0, 1),
-    int2(1, 1),
-    int2(-1, 0),
-    int2(1, 0),
     int2(-1, -1),
     int2(0, -1),
-    int2(1, -1)
+    int2(1, -1),
+    int2(-1, 0),
+    int2(1, 0),
+    int2(-1, 1),
+    int2(0, 1),
+    int2(1, 1)
 };
 
 float maxComponent(float2 vec) {
@@ -47,6 +47,9 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     float4 col = Source[id.xy];
     Result[id.xy] = col;
 
+    // Make the texture tile
+    uv = (uv * cellInfo.w) % 1;
+
     // Find which cell the current pixel occupies
     int2 cellID = floor(uv * NUM_CELLS);
 
@@ -57,33 +60,26 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
         // Calculate the current adjacent cell to check
         int2 adjCellID = cellID + cellOffsets[i];
 
-        // If the cell is outside the texture wrap around to the other side
-        if (minComponent((float2)adjCellID) == -1 || maxComponent((float2)adjCellID) == NUM_CELLS)
+        // If the cell is outside the texture, wrap around to the other side
+        if (minComponent(adjCellID) == -1 || maxComponent(adjCellID) == NUM_CELLS)
         {
-            int2 wrappedID = (adjCellID + NUM_CELLS) % (uint3)NUM_CELLS;
-            int adjCellIndex = wrappedID.x + NUM_CELLS * (wrappedID.y * NUM_CELLS);
-            float3 wrappedPoint = points[adjCellIndex];
+            int2 wrappedID = (adjCellID + NUM_CELLS) % NUM_CELLS;
+            int adjCellIndex = wrappedID.x + (wrappedID.y * NUM_CELLS);
+            float2 wrappedPoint = points[adjCellIndex];
 
             for (int wrapOffsetIndex = 0; wrapOffsetIndex < 9; wrapOffsetIndex++)
             {
-                float2 dist = (uv - (wrappedPoint + cellOffsets[wrapOffsetIndex]));
-                minSqrDist = min(minSqrDist, dot(dist, dist));
+                float2 dirVector = uv - (wrappedPoint + cellOffsets[wrapOffsetIndex]);
+                minSqrDist = min(minSqrDist, dot(dirVector, dirVector));
             }
         }
         else
         {
-            int adjCellIndex = adjCellID.x + NUM_CELLS * (adjCellID.y * NUM_CELLS);
-            float2 dist = uv - points[adjCellIndex];
-            minSqrDist = min(minSqrDist, dot(dist, dist));
+            int adjCellIndex = adjCellID.x + (adjCellID.y * NUM_CELLS);
+            float2 dirVector = uv - points[adjCellIndex];
+            minSqrDist = min(minSqrDist, dot(dirVector, dirVector));
         }
     }
-
-    //// Find the closest point to the current texture pixel
-    //for (int i = 0; i < TOTAL_CELLS; i++)
-    //{
-    //    float2 dirVector = points[i].xy - uv;
-    //    minSqrDist = min(minSqrDist, dot(dirVector, dirVector));
-    //}
 
     // Calculate the maximum distance by getting the distance across the diagonal of a cell
     float2 cellSize = float2(cellInfo.z, cellInfo.z);
@@ -91,5 +87,6 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
 
     // Normalise the distance by dividing it by the maximum distance
     col.xyz = sqrt(minSqrDist) / maxDist;
+
     Result[id.xy] = 1 - col;
 }

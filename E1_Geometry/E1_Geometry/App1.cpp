@@ -25,6 +25,7 @@ App1::App1()
 	// Timers
 	noiseTimer = nullptr;
 	elapsedTime = 0;
+	timetaken = 9;
 
 	// Floats
 	noiseGenTexRes = 512;
@@ -33,6 +34,8 @@ App1::App1()
 	textureGenerated = false;
 	showWorleyNoiseTexture = false;
 
+	// Floats
+	tileVal = 1.0f;
 }
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
@@ -179,7 +182,7 @@ bool App1::frame()
 
 bool App1::render()
 {
-	if (!textureGenerated)
+	//if (!textureGenerated)
 	{
 		textureGenerated = true;
 		NoiseGenPass();
@@ -197,7 +200,7 @@ void App1::NoiseGenPass()
 	noiseGenRT->clearRenderTarget(renderer->getDeviceContext(), 0, 0, 0, 1.0f);
 
 	// Generate noise texture
-	noiseGenShader->setShaderParameters(renderer->getDeviceContext(), noiseGenRT->getShaderResourceView());
+	noiseGenShader->setShaderParameters(renderer->getDeviceContext(), noiseGenRT->getShaderResourceView(), tileVal);
 	noiseTimer->StartTimer();
 	noiseGenShader->compute(renderer->getDeviceContext(), ceil(noiseGenTexRes / 8.0f), ceil(noiseGenTexRes / 8.0f), 1);
 	noiseGenShader->unbind(renderer->getDeviceContext());
@@ -282,6 +285,7 @@ void App1::gui()
 	ImGui::Text("Noise Compute-time(ms): %.5f", timetaken * 1000);
 	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
 	ImGui::Checkbox("Show Worley Noise Texture", &showWorleyNoiseTexture);
+	ImGui::SliderFloat("Tile Value", &tileVal, 0, 10);
 
 	// Render UI
 	ImGui::Render();

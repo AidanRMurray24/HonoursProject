@@ -13,14 +13,14 @@ private:
 	struct PointBufferType
 	{
 		XMFLOAT4 points[TOTAL_CELLS];
-		XMFLOAT4 cellInfo; // x = Num cells, y = Total Cells, z = Cell size
+		XMFLOAT4 cellInfo; // x = Num cells, y = Total Cells, z = Cell size, w = tile value
 	};
 
 public:
 	NoiseGeneratorShader(ID3D11Device* device, HWND hwnd, int w, int h);
 	~NoiseGeneratorShader();
 
-	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1);
+	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1, float tileVal);
 	void createOutputUAV();
 	void unbind(ID3D11DeviceContext* dc);
 	inline ID3D11ShaderResourceView* getSRV() { return m_srvTexOutput; }

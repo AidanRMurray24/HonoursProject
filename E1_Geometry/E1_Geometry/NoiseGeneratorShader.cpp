@@ -17,7 +17,7 @@ NoiseGeneratorShader::~NoiseGeneratorShader()
 {
 }
 
-void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1)
+void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1, float tileVal)
 {
 	// Pass the source texture and the texture to be modified to the shader
 	dc->CSSetShaderResources(0, 1, &texture1);
@@ -35,6 +35,7 @@ void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Sh
 	pointPtr->cellInfo.x = NUM_CELLS;
 	pointPtr->cellInfo.y = TOTAL_CELLS;
 	pointPtr->cellInfo.z = 1.f / NUM_CELLS;
+	pointPtr->cellInfo.w = tileVal;
 	dc->Unmap(pointBuffer, 0);
 	dc->CSSetConstantBuffers(0, 1, &pointBuffer);
 }
@@ -113,9 +114,9 @@ void NoiseGeneratorShader::GenerateWorleyNoisePoints()
 	float cellSize = 1.f / NUM_CELLS;
 
 	// Loop through all the cells
-	for (size_t x = 0; x < NUM_CELLS; x++)
+	for (size_t y = 0; y < NUM_CELLS; y++)
 	{
-		for (size_t y = 0; y < NUM_CELLS; y++)
+		for (size_t x = 0; x < NUM_CELLS; x++)
 		{
 			// Find a random point inside the current cell and push it to the vector
 			XMFLOAT2 randomFloats = XMFLOAT2((rand() / (double)RAND_MAX), (rand() / (double)RAND_MAX));
