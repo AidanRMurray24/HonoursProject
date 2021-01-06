@@ -2,7 +2,6 @@
 #define NUM_CELLS 5
 #define TOTAL_CELLS NUM_CELLS * NUM_CELLS 
 
-Texture2D Source : register(t0);
 RWTexture2D<float4> Result : register(u0);
 
 cbuffer PointBuffer : register(b0)
@@ -44,7 +43,7 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     float2 uv = id / (float)resolution;
 
     // Set the colour to the source render texture initially
-    float4 col = Source[id.xy];
+    float4 col = float4(0,0,0,0);
     Result[id.xy] = col;
 
     // Make the texture tile

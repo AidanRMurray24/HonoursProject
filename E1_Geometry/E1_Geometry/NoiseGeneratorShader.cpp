@@ -17,10 +17,10 @@ NoiseGeneratorShader::~NoiseGeneratorShader()
 {
 }
 
-void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1, float tileVal)
+void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, float tileVal)
 {
 	// Pass the source texture and the texture to be modified to the shader
-	dc->CSSetShaderResources(0, 1, &texture1);
+	//dc->CSSetShaderResources(0, 1, &texture1);
 	dc->CSSetUnorderedAccessViews(0, 1, &m_uavAccess, 0);
 
 	// Create a mapped resource object to map the data from the buffers to and pass them into the shader
@@ -42,6 +42,7 @@ void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Sh
 
 void NoiseGeneratorShader::createOutputUAV()
 {
+	// Texture description
 	D3D11_TEXTURE2D_DESC textureDesc;
 	ZeroMemory(&textureDesc, sizeof(textureDesc));
 	textureDesc.Width = sWidth;
@@ -58,7 +59,7 @@ void NoiseGeneratorShader::createOutputUAV()
 	m_tex = 0;
 	renderer->CreateTexture2D(&textureDesc, 0, &m_tex);
 
-	// Output texture
+	// Unordered access view
 	D3D11_UNORDERED_ACCESS_VIEW_DESC descUAV;
 	ZeroMemory(&descUAV, sizeof(descUAV));
 	descUAV.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // DXGI_FORMAT_UNKNOWN;
@@ -66,7 +67,7 @@ void NoiseGeneratorShader::createOutputUAV()
 	descUAV.Texture2D.MipSlice = 0;
 	renderer->CreateUnorderedAccessView(m_tex, &descUAV, &m_uavAccess);
 
-	// Source texture
+	// Shader resource view
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.Format = textureDesc.Format;
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;

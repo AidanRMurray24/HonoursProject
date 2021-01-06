@@ -20,7 +20,7 @@ public:
 	NoiseGeneratorShader(ID3D11Device* device, HWND hwnd, int w, int h);
 	~NoiseGeneratorShader();
 
-	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1, float tileVal);
+	void setShaderParameters(ID3D11DeviceContext* dc, float tileVal);
 	void createOutputUAV();
 	void unbind(ID3D11DeviceContext* dc);
 	inline ID3D11ShaderResourceView* getSRV() { return m_srvTexOutput; }
