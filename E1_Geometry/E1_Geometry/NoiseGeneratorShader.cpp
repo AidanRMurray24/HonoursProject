@@ -2,12 +2,13 @@
 #include <stdlib.h>
 #include <time.h>
 
-NoiseGeneratorShader::NoiseGeneratorShader(ID3D11Device* _device, HWND hwnd, int w, int h) : BaseShader(_device, hwnd)
+NoiseGeneratorShader::NoiseGeneratorShader(ID3D11Device* _device, HWND hwnd, int w, int h, int d) : BaseShader(_device, hwnd)
 {
 	pointsSeed = 0;
 	device = _device;
-	sWidth = w;
-	sHeight = h;
+	texWidth = w;
+	texHeight = h;
+	texDepth = d;
 	GenerateWorleyNoisePoints();
 
 	initShader(L"noiseGen_cs.cso", NULL);
@@ -31,7 +32,7 @@ void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Sh
 	dc->Map(pointBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	pointPtr = (PointBufferType*)mappedResource.pData;
 	for (size_t i = 0; i < TOTAL_CELLS; i++)
-		pointPtr->points[i] = XMFLOAT4(points[i].x, points[i].y, 0, 0);
+		pointPtr->points[i] = XMFLOAT4(points[i].x, points[i].y, points[i].z, 0);
 	pointPtr->cellInfo.x = NUM_CELLS;
 	pointPtr->cellInfo.y = TOTAL_CELLS;
 	pointPtr->cellInfo.z = 1.f / NUM_CELLS;
@@ -42,37 +43,69 @@ void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Sh
 
 void NoiseGeneratorShader::createOutputUAV()
 {
-	D3D11_TEXTURE2D_DESC textureDesc;
-	ZeroMemory(&textureDesc, sizeof(textureDesc));
-	textureDesc.Width = sWidth;
-	textureDesc.Height = sHeight;
-	textureDesc.MipLevels = 1;
-	textureDesc.ArraySize = 1;
-	textureDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	textureDesc.SampleDesc.Count = 1;
-	textureDesc.SampleDesc.Quality = 0;
-	textureDesc.Usage = D3D11_USAGE_DEFAULT;
-	textureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-	textureDesc.CPUAccessFlags = 0;
-	textureDesc.MiscFlags = 0;
-	m_tex = 0;
-	renderer->CreateTexture2D(&textureDesc, 0, &m_tex);
+	/*D3D11_TEXTURE2D_DESC textureDesc2D;
+	ZeroMemory(&textureDesc2D, sizeof(textureDesc2D));
+	textureDesc2D.Width = texWidth;
+	textureDesc2D.Height = texHeight;
+	textureDesc2D.MipLevels = 1;
+	textureDesc2D.ArraySize = 1;
+	textureDesc2D.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	textureDesc2D.SampleDesc.Count = 1;
+	textureDesc2D.SampleDesc.Quality = 0;
+	textureDesc2D.Usage = D3D11_USAGE_DEFAULT;
+	textureDesc2D.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+	textureDesc2D.CPUAccessFlags = 0;
+	textureDesc2D.MiscFlags = 0;
+	tex2D = 0;
+	renderer->CreateTexture2D(&textureDesc2D, 0, &tex2D);*/
+
+	//// Output texture
+	//D3D11_UNORDERED_ACCESS_VIEW_DESC descUAV;
+	//ZeroMemory(&descUAV, sizeof(descUAV));
+	//descUAV.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // DXGI_FORMAT_UNKNOWN;
+	//descUAV.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
+	//descUAV.Texture2D.MipSlice = 0;
+	//renderer->CreateUnorderedAccessView(tex2D, &descUAV, &m_uavAccess);
+
+	//// Source texture
+	//D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+	//srvDesc.Format = textureDesc.Format;
+	//srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	//srvDesc.Texture2D.MostDetailedMip = 0;
+	//srvDesc.Texture2D.MipLevels = 1;
+	//renderer->CreateShaderResourceView(tex2D, &srvDesc, &m_srvTexOutput);
+
+	D3D11_TEXTURE3D_DESC textureDesc3D;
+	ZeroMemory(&textureDesc3D, sizeof(textureDesc3D));
+	textureDesc3D.Width = texWidth;
+	textureDesc3D.Height = texHeight;
+	textureDesc3D.Depth = texDepth;
+	textureDesc3D.MipLevels = 0;
+	textureDesc3D.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	textureDesc3D.Usage = D3D11_USAGE_DEFAULT;
+	textureDesc3D.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+	textureDesc3D.CPUAccessFlags = 0;
+	textureDesc3D.MiscFlags = 0;
+	tex3D = 0;
+	renderer->CreateTexture3D(&textureDesc3D, 0, &tex3D);
 
 	// Output texture
 	D3D11_UNORDERED_ACCESS_VIEW_DESC descUAV;
 	ZeroMemory(&descUAV, sizeof(descUAV));
 	descUAV.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // DXGI_FORMAT_UNKNOWN;
-	descUAV.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
-	descUAV.Texture2D.MipSlice = 0;
-	renderer->CreateUnorderedAccessView(m_tex, &descUAV, &m_uavAccess);
+	descUAV.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE3D;
+	descUAV.Texture3D.WSize = texDepth;
+	descUAV.Texture3D.FirstWSlice = 1;
+	descUAV.Texture3D.MipSlice = 20;
+	renderer->CreateUnorderedAccessView(tex3D, &descUAV, &m_uavAccess);
 
 	// Source texture
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-	srvDesc.Format = textureDesc.Format;
-	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-	srvDesc.Texture2D.MipLevels = 1;
-	renderer->CreateShaderResourceView(m_tex, &srvDesc, &m_srvTexOutput);
+	srvDesc.Format = textureDesc3D.Format;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
+	srvDesc.Texture3D.MostDetailedMip = 0;
+	srvDesc.Texture3D.MipLevels = 0;
+	renderer->CreateShaderResourceView(tex3D, &srvDesc, &m_srvTexOutput);
 }
 
 void NoiseGeneratorShader::unbind(ID3D11DeviceContext* dc)
@@ -114,15 +147,18 @@ void NoiseGeneratorShader::GenerateWorleyNoisePoints()
 	float cellSize = 1.f / NUM_CELLS;
 
 	// Loop through all the cells
-	for (size_t y = 0; y < NUM_CELLS; y++)
+	for (size_t z = 0; z < NUM_CELLS; z++)
 	{
-		for (size_t x = 0; x < NUM_CELLS; x++)
+		for (size_t y = 0; y < NUM_CELLS; y++)
 		{
-			// Find a random point inside the current cell and push it to the vector
-			XMFLOAT2 randomFloats = XMFLOAT2((rand() / (double)RAND_MAX), (rand() / (double)RAND_MAX));
-			XMFLOAT2 randomOffset = XMFLOAT2(randomFloats.x * cellSize, randomFloats.y * cellSize);
-			XMFLOAT2 cellCorner = XMFLOAT2(x * cellSize, y * cellSize);
-			points.push_back(XMFLOAT2(cellCorner.x + randomOffset.x, cellCorner.y + randomOffset.y));
+			for (size_t x = 0; x < NUM_CELLS; x++)
+			{
+				// Find a random point inside the current cell and push it to the vector
+				XMFLOAT3 randomFloats = XMFLOAT3((rand() / (double)RAND_MAX), (rand() / (double)RAND_MAX), (rand() / (double)RAND_MAX));
+				XMFLOAT3 randomOffset = XMFLOAT3(randomFloats.x * cellSize, randomFloats.y * cellSize, randomFloats.z * cellSize);
+				XMFLOAT3 cellCorner = XMFLOAT3(x * cellSize, y * cellSize, z * cellSize);
+				points.push_back(XMFLOAT3(cellCorner.x + randomOffset.x, cellCorner.y + randomOffset.y, cellCorner.z + randomOffset.z));
+			}
 		}
 	}
 }

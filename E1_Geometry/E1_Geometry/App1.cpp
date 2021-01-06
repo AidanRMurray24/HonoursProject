@@ -58,7 +58,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	manipulationShader = new ManipulationShader(renderer->getDevice(), hwnd);
 	rayMarcherShader = new SimpleRayMarcherShader(renderer->getDevice(), hwnd, screenWidth, screenHeight, camera, light);
 	texShader = new TextureShader(renderer->getDevice(), hwnd);
-	noiseGenShader = new NoiseGeneratorShader(renderer->getDevice(), hwnd, noiseGenTexRes, noiseGenTexRes);
+	noiseGenShader = new NoiseGeneratorShader(renderer->getDevice(), hwnd, noiseGenTexRes, noiseGenTexRes, noiseGenTexRes);
 
 	// Initialise Meshes
 	planeMesh = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext());
@@ -232,7 +232,7 @@ void App1::RayMarchPass()
 {
 	// Raymarching pass using render texture of the rendered scene
 	rayMarcherShader->setShaderParameters(renderer->getDeviceContext(), rayMarchRT->getShaderResourceView(), renderer->getProjectionMatrix());
-	rayMarcherShader->compute(renderer->getDeviceContext(), ceil(sWidth / 8.0f), ceil(sHeight / 8.0f), 1);
+	rayMarcherShader->compute(renderer->getDeviceContext(), ceil(sWidth / 8.0f), ceil(sHeight / 8.0f), ceil(sHeight / 8.0f));
 	rayMarcherShader->unbind(renderer->getDeviceContext());
 }
 

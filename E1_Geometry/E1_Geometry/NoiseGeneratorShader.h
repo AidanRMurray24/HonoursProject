@@ -2,7 +2,7 @@
 #include "../DXFramework/DXF.h"
 
 #define NUM_CELLS 5
-#define TOTAL_CELLS NUM_CELLS * NUM_CELLS
+#define TOTAL_CELLS NUM_CELLS * NUM_CELLS * NUM_CELLS
 
 using namespace std;
 using namespace DirectX;
@@ -17,7 +17,7 @@ private:
 	};
 
 public:
-	NoiseGeneratorShader(ID3D11Device* device, HWND hwnd, int w, int h);
+	NoiseGeneratorShader(ID3D11Device* device, HWND hwnd, int w, int h, int d);
 	~NoiseGeneratorShader();
 
 	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1, float tileVal);
@@ -30,7 +30,8 @@ private:
 	void GenerateWorleyNoisePoints();
 
 	// Texture set
-	ID3D11Texture2D* m_tex;
+	ID3D11Texture2D* tex2D;
+	ID3D11Texture3D* tex3D;
 	ID3D11ShaderResourceView* m_srvTexOutput;
 	ID3D11UnorderedAccessView* m_uavAccess;
 
@@ -38,12 +39,13 @@ private:
 	ID3D11Buffer* pointBuffer;
 
 	// Random Points
-	std::vector<XMFLOAT2> points;
+	std::vector<XMFLOAT3> points;
 	int pointsSeed;
 
-	// Screen Info
-	int sWidth;
-	int sHeight;
+	// Texture sizes
+	int texWidth;
+	int texHeight;
+	int texDepth;
 
 	ID3D11Device* device;
 };

@@ -1,9 +1,9 @@
 
 #define NUM_CELLS 5
-#define TOTAL_CELLS NUM_CELLS * NUM_CELLS 
+#define TOTAL_CELLS NUM_CELLS * NUM_CELLS * NUM_CELLS
 
 Texture2D Source : register(t0);
-RWTexture2D<float4> Result : register(u0);
+RWTexture3D<float4> Result : register(u0);
 
 cbuffer PointBuffer : register(b0)
 {
@@ -11,72 +11,91 @@ cbuffer PointBuffer : register(b0)
     float4 cellInfo; // x = Num cells, y = Total Cells, z = Cell size, w = tile value
 };
 
-static const int2 cellOffsets[] =
+static const int3 cellOffsets[] =
 {
-    // Centre
-    int2(0,0),
-
-    // Ring around centre
-    int2(-1, -1),
-    int2(0, -1),
-    int2(1, -1),
-    int2(-1, 0),
-    int2(1, 0),
-    int2(-1, 1),
-    int2(0, 1),
-    int2(1, 1)
+    // centre
+    int3(0,0,0),
+    // front face
+    int3(0,0,1),
+    int3(-1,1,1),
+    int3(-1,0,1),
+    int3(-1,-1,1),
+    int3(0,1,1),
+    int3(0,-1,1),
+    int3(1,1,1),
+    int3(1,0,1),
+    int3(1,-1,1),
+    // back face
+    int3(0,0,-1),
+    int3(-1,1,-1),
+    int3(-1,0,-1),
+    int3(-1,-1,-1),
+    int3(0,1,-1),
+    int3(0,-1,-1),
+    int3(1,1,-1),
+    int3(1,0,-1),
+    int3(1,-1,-1),
+    // ring around centre
+    int3(-1,1,0),
+    int3(-1,0,0),
+    int3(-1,-1,0),
+    int3(0,1,0),
+    int3(0,-1,0),
+    int3(1,1,0),
+    int3(1,0,0),
+    int3(1,-1,0)
 };
 
-float maxComponent(float2 vec) {
-    return max(vec.x, vec.y);
+float maxComponent(float3 vec) {
+    return max(vec.x, max(vec.y, vec.z));
 }
 
-float minComponent(float2 vec) {
-    return min(vec.x, vec.y);
+float minComponent(float3 vec) {
+    return min(vec.x, min(vec.y, vec.z));
 }
 
-[numthreads(8, 8, 1)]
+[numthreads(8, 8, 8)]
 void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
 {
     // Get the UVs of the texture
-    float2 resolution = float2(0, 0);
-    Result.GetDimensions(resolution.x, resolution.y);
-    float2 uv = id / (float)resolution;
+    float3 resolution = float3(0, 0, 0);
+    Result.GetDimensions(resolution.x, resolution.y, resolution.z);
+    float3 uv = id / (float)resolution;
 
     // Set the colour to the source render texture initially
     float4 col = Source[id.xy];
-    Result[id.xy] = col;
+    Result[id.xyz] = col;
 
     // Make the texture tile
     uv = (uv * cellInfo.w) % 1;
 
     // Find which cell the current pixel occupies
-    int2 cellID = floor(uv * NUM_CELLS);
+    int3 cellID = floor(uv * NUM_CELLS);
 
     // Loop through the adjacent cells to find the closest point to the pixel
     float minSqrDist = 1;
-    for (int i = 0; i < 9; i++)
+    for (int i = 0; i < 27; i++)
     {
         // Calculate the current adjacent cell to check
-        int2 adjCellID = cellID + cellOffsets[i];
+        int3 adjCellID = cellID + cellOffsets[i];
 
         // If the cell is outside the texture, wrap around to the other side
         if (minComponent(adjCellID) == -1 || maxComponent(adjCellID) == NUM_CELLS)
         {
-            int2 wrappedID = (adjCellID + NUM_CELLS) % NUM_CELLS;
-            int adjCellIndex = wrappedID.x + (wrappedID.y * NUM_CELLS);
-            float2 wrappedPoint = points[adjCellIndex];
+            int3 wrappedID = (adjCellID + NUM_CELLS) % NUM_CELLS;
+            int adjCellIndex = wrappedID.x + (wrappedID.y + wrappedID.z * NUM_CELLS) * NUM_CELLS;
+            float3 wrappedPoint = points[adjCellIndex];
 
-            for (int wrapOffsetIndex = 0; wrapOffsetIndex < 9; wrapOffsetIndex++)
+            for (int wrapOffsetIndex = 0; wrapOffsetIndex < 27; wrapOffsetIndex++)
             {
-                float2 dirVector = uv - (wrappedPoint + cellOffsets[wrapOffsetIndex]);
+                float3 dirVector = uv - (wrappedPoint + cellOffsets[wrapOffsetIndex]);
                 minSqrDist = min(minSqrDist, dot(dirVector, dirVector));
             }
         }
         else
         {
-            int adjCellIndex = adjCellID.x + (adjCellID.y * NUM_CELLS);
-            float2 dirVector = uv - points[adjCellIndex];
+            int adjCellIndex = adjCellID.x + (adjCellID.y + adjCellID.z * NUM_CELLS) * NUM_CELLS;
+            float3 dirVector = uv - points[adjCellIndex];
             minSqrDist = min(minSqrDist, dot(dirVector, dirVector));
         }
     }
@@ -88,5 +107,6 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     // Normalise the distance by dividing it by the maximum distance
     col.xyz = sqrt(minSqrDist) / maxDist;
 
-    Result[id.xy] = 1 - col;
+    //Result[id.xyz] = 1 - col;
+    Result[id.xyz] = float4(1,1,1,1);
 }
