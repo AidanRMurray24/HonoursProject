@@ -7,7 +7,7 @@ App1::App1()
 	// Shaders
 	manipulationShader = nullptr;
 	rayMarcherShader = nullptr;
-	texShader = nullptr;
+	tex2DShader = nullptr;
 	noiseGenShader = nullptr;
 
 	// Render textures
@@ -57,7 +57,8 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	// Initialise Shaders
 	manipulationShader = new ManipulationShader(renderer->getDevice(), hwnd);
 	rayMarcherShader = new SimpleRayMarcherShader(renderer->getDevice(), hwnd, screenWidth, screenHeight, camera, light);
-	texShader = new TextureShader(renderer->getDevice(), hwnd);
+	tex2DShader = new TextureShader(renderer->getDevice(), hwnd, TextureType::TEXTURE2D);
+	tex3DShader = new TextureShader(renderer->getDevice(), hwnd, TextureType::TEXTURE3D);
 	noiseGenShader = new NoiseGeneratorShader(renderer->getDevice(), hwnd, noiseGenTexRes, noiseGenTexRes, noiseGenTexRes);
 
 	// Initialise Meshes
@@ -95,10 +96,10 @@ App1::~App1()
 			rayMarcherShader = 0;
 		}
 
-		if (texShader)
+		if (tex2DShader)
 		{
-			delete texShader;
-			texShader = 0;
+			delete tex2DShader;
+			tex2DShader = 0;
 		}
 
 		if (noiseGenShader)
@@ -253,15 +254,15 @@ void App1::FinalPass()
 	
 	// Render ortho mesh with ray march
 	screenOrthoMesh->sendData(renderer->getDeviceContext());
-	texShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, rayMarcherShader->getSRV());
-	texShader->render(renderer->getDeviceContext(), screenOrthoMesh->getIndexCount());
+	tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, rayMarcherShader->getSRV());
+	tex2DShader->render(renderer->getDeviceContext(), screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with noise texture
 	if (showWorleyNoiseTexture)
 	{
 		noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
-		texShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, noiseGenShader->getSRV());
-		texShader->render(renderer->getDeviceContext(), noiseGenOrthoMesh->getIndexCount());
+		tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, noiseGenShader->getSRV());
+		tex3DShader->render(renderer->getDeviceContext(), noiseGenOrthoMesh->getIndexCount());
 	}
 
 	renderer->setZBuffer(true);

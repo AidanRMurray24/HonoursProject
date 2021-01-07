@@ -2,9 +2,22 @@
 
 
 
-TextureShader::TextureShader(ID3D11Device* device, HWND hwnd) : BaseShader(device, hwnd)
+TextureShader::TextureShader(ID3D11Device* device, HWND hwnd, TextureType _type) : BaseShader(device, hwnd)
 {
-	initShader(L"texture_vs.cso", L"texture_ps.cso");
+	type = _type;
+
+	// Change the shaders used depending on the texture type
+	switch (type)
+	{
+	case TEXTURE2D:
+		initShader(L"texture_vs.cso", L"texture_ps.cso");
+		break;
+	case TEXTURE3D:
+		initShader(L"texture_vs.cso", L"texture3D_ps.cso");
+		break;
+	default:
+		break;
+	}
 }
 
 

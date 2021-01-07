@@ -80,7 +80,7 @@ void NoiseGeneratorShader::createOutputUAV()
 	textureDesc3D.Width = texWidth;
 	textureDesc3D.Height = texHeight;
 	textureDesc3D.Depth = texDepth;
-	textureDesc3D.MipLevels = 0;
+	textureDesc3D.MipLevels = 1;
 	textureDesc3D.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
 	textureDesc3D.Usage = D3D11_USAGE_DEFAULT;
 	textureDesc3D.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
@@ -94,17 +94,18 @@ void NoiseGeneratorShader::createOutputUAV()
 	ZeroMemory(&descUAV, sizeof(descUAV));
 	descUAV.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // DXGI_FORMAT_UNKNOWN;
 	descUAV.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE3D;
+	descUAV.Texture3D.MipSlice = 0;
+	descUAV.Texture3D.FirstWSlice = 0;
 	descUAV.Texture3D.WSize = texDepth;
-	descUAV.Texture3D.FirstWSlice = 1;
-	descUAV.Texture3D.MipSlice = 20;
 	renderer->CreateUnorderedAccessView(tex3D, &descUAV, &m_uavAccess);
 
 	// Source texture
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+	ZeroMemory(&srvDesc, sizeof(srvDesc));
 	srvDesc.Format = textureDesc3D.Format;
 	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
 	srvDesc.Texture3D.MostDetailedMip = 0;
-	srvDesc.Texture3D.MipLevels = 0;
+	srvDesc.Texture3D.MipLevels = 1;
 	renderer->CreateShaderResourceView(tex3D, &srvDesc, &m_srvTexOutput);
 }
 

@@ -107,6 +107,6 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     // Normalise the distance by dividing it by the maximum distance
     col.xyz = sqrt(minSqrDist) / maxDist;
 
-    //Result[id.xyz] = 1 - col;
-    Result[id.xyz] = float4(1,1,1,1);
+    Result[id.xyz] = 1 - col;
+    //Result[id.xyz] = float4(1,1,1,1);
 }

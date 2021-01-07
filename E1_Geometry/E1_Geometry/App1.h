@@ -33,7 +33,8 @@ private:
 	ManipulationShader* manipulationShader;
 	SimpleRayMarcherShader* rayMarcherShader;
 	NoiseGeneratorShader* noiseGenShader;
-	TextureShader* texShader;
+	TextureShader* tex2DShader;
+	TextureShader* tex3DShader;
 
 	// Render textures
 	RenderTexture* rayMarchRT;
