@@ -202,7 +202,7 @@ void App1::NoiseGenPass()
 	noiseGenRT->clearRenderTarget(renderer->getDeviceContext(), 0, 0, 0, 1.0f);
 
 	// Generate noise texture
-	noiseGenShader->setShaderParameters(renderer->getDeviceContext(), noiseGenRT->getShaderResourceView(), tileVal);
+	noiseGenShader->setShaderParameters(renderer->getDeviceContext(), tileVal);
 	noiseTimer->StartTimer();
 	noiseGenShader->compute(renderer->getDeviceContext(), ceil(noiseGenTexRes / 8.0f), ceil(noiseGenTexRes / 8.0f), ceil(noiseGenTexRes / 8.0f));
 	noiseGenShader->unbind(renderer->getDeviceContext());
