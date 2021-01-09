@@ -10,7 +10,7 @@ public:
 	~CloudMarcherShader();
 
 	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture);
-	void createOutputUAV();
+	void createGPUViews();
 	void unbind(ID3D11DeviceContext* dc);
 	inline ID3D11ShaderResourceView* getSRV() { return srvTexOutput; }
 
@@ -19,6 +19,7 @@ private:
 
 	ID3D11ShaderResourceView* srvTexOutput;
 	ID3D11UnorderedAccessView* uavTexAccess;
+	ID3D11Texture2D* outputTexture;
 
 	int screenWidth;
 	int screenHeight;

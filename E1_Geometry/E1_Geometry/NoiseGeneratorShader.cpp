@@ -18,10 +18,9 @@ NoiseGeneratorShader::~NoiseGeneratorShader()
 {
 }
 
-void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* texture1, float tileVal)
+void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, float tileVal)
 {
 	// Pass the source texture and the texture to be modified to the shader
-	dc->CSSetShaderResources(0, 1, &texture1);
 	dc->CSSetUnorderedAccessViews(0, 1, &m_uavAccess, 0);
 
 	// Create a mapped resource object to map the data from the buffers to and pass them into the shader
@@ -41,7 +40,7 @@ void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Sh
 	dc->CSSetConstantBuffers(0, 1, &pointBuffer);
 }
 
-void NoiseGeneratorShader::createOutputUAV()
+void NoiseGeneratorShader::createGPUViews()
 {
 	// Setup the description for the 3D texture
 	D3D11_TEXTURE3D_DESC textureDesc3D;
@@ -95,7 +94,7 @@ void NoiseGeneratorShader::initShader(const wchar_t* cfile, const wchar_t* blank
 {
 	// Load the shader and create the views
 	loadComputeShader(cfile);
-	createOutputUAV();
+	createGPUViews();
 
 	// Init point buffer
 	D3D11_BUFFER_DESC pointBufferDesc;

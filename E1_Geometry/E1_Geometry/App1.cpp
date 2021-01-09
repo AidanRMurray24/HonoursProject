@@ -6,13 +6,14 @@ App1::App1()
 {
 	// Shaders
 	manipulationShader = nullptr;
+	cloudMarcherShader = nullptr;
 	rayMarcherShader = nullptr;
-	tex2DShader = nullptr;
 	noiseGenShader = nullptr;
+	tex2DShader = nullptr;
+	tex3DShader = nullptr;
 
 	// Render textures
-	rayMarchRT = nullptr;
-	noiseGenRT = nullptr;
+	sceneRT = nullptr;
 
 	// Meshes
 	planeMesh = nullptr;
@@ -39,8 +40,11 @@ App1::App1()
 	sliceVal = 0;
 }
 
-void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
+void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
 {
+	screenWidth = _screenWidth;
+	screenHeight = _screenHeight;
+
 	// Call super/parent init function (required!)
 	BaseApplication::init(hinstance, hwnd, screenWidth, screenHeight, in, VSYNC, FULL_SCREEN);
 
@@ -61,6 +65,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	tex2DShader = new TextureShader(renderer->getDevice(), hwnd, TextureType::TEXTURE2D);
 	tex3DShader = new TextureShader(renderer->getDevice(), hwnd, TextureType::TEXTURE3D);
 	noiseGenShader = new NoiseGeneratorShader(renderer->getDevice(), hwnd, noiseGenTexRes, noiseGenTexRes, noiseGenTexRes);
+	cloudMarcherShader = new CloudMarcherShader(renderer->getDevice(), hwnd, screenWidth, screenHeight);
 
 	// Initialise Meshes
 	planeMesh = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext());
@@ -71,8 +76,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	noiseTimer = new GPUTimer(renderer->getDevice(), renderer->getDeviceContext());
 
 	// Initialise Render Textures
-	rayMarchRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 100.f);
-	noiseGenRT = new RenderTexture(renderer->getDevice(), noiseGenTexRes, noiseGenTexRes, 0.1f, 100.f);
+	sceneRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 100.f);
 }
 
 
@@ -97,10 +101,22 @@ App1::~App1()
 			rayMarcherShader = 0;
 		}
 
+		if (cloudMarcherShader)
+		{
+			delete cloudMarcherShader;
+			cloudMarcherShader = 0;
+		}
+
 		if (tex2DShader)
 		{
 			delete tex2DShader;
 			tex2DShader = 0;
+		}
+
+		if (tex3DShader)
+		{
+			delete tex3DShader;
+			tex3DShader = 0;
 		}
 
 		if (noiseGenShader)
@@ -136,10 +152,10 @@ App1::~App1()
 
 	// Render Textures
 	{
-		if (rayMarchRT)
+		if (sceneRT)
 		{
-			delete rayMarchRT;
-			rayMarchRT = 0;
+			delete sceneRT;
+			sceneRT = 0;
 		}
 	}
 
@@ -191,6 +207,7 @@ bool App1::render()
 	}
 	GeometryPass();
 	RayMarchPass();
+	CloudMarchPass();
 	FinalPass();
 
 	return true;
@@ -198,9 +215,6 @@ bool App1::render()
 
 void App1::NoiseGenPass()
 {
-	// Set the noise render texture to be black at the start
-	noiseGenRT->clearRenderTarget(renderer->getDeviceContext(), 0, 0, 0, 1.0f);
-
 	// Generate noise texture
 	noiseGenShader->setShaderParameters(renderer->getDeviceContext(), tileVal);
 	noiseTimer->StartTimer();
@@ -212,8 +226,8 @@ void App1::NoiseGenPass()
 void App1::GeometryPass()
 {
 	// Set the render target to the render texture
-	rayMarchRT->setRenderTarget(renderer->getDeviceContext());
-	rayMarchRT->clearRenderTarget(renderer->getDeviceContext(), 0.39f, 0.58f, 0.92f, 1.0f);
+	sceneRT->setRenderTarget(renderer->getDeviceContext());
+	sceneRT->clearRenderTarget(renderer->getDeviceContext(), 0.39f, 0.58f, 0.92f, 1.0f);
 
 	// Get the world, view, projection, and ortho matrices from the camera and Direct3D objects.
 	XMMATRIX worldMatrix = renderer->getWorldMatrix();
@@ -233,9 +247,17 @@ void App1::GeometryPass()
 void App1::RayMarchPass()
 {
 	// Raymarching pass using render texture of the rendered scene
-	rayMarcherShader->setShaderParameters(renderer->getDeviceContext(), rayMarchRT->getShaderResourceView(), renderer->getProjectionMatrix());
+	rayMarcherShader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), renderer->getProjectionMatrix());
 	rayMarcherShader->compute(renderer->getDeviceContext(), ceil(sWidth / 8.0f), ceil(sHeight / 8.0f), ceil(sHeight / 8.0f));
 	rayMarcherShader->unbind(renderer->getDeviceContext());
+}
+
+void App1::CloudMarchPass()
+{
+	// Generate clouds
+	cloudMarcherShader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView());
+	cloudMarcherShader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
+	cloudMarcherShader->unbind(renderer->getDeviceContext());
 }
 
 void App1::FinalPass()
@@ -256,6 +278,11 @@ void App1::FinalPass()
 	// Render ortho mesh with ray march
 	screenOrthoMesh->sendData(renderer->getDeviceContext());
 	tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, rayMarcherShader->getSRV());
+	tex2DShader->render(renderer->getDeviceContext(), screenOrthoMesh->getIndexCount());
+
+	// Render clouds
+	screenOrthoMesh->sendData(renderer->getDeviceContext());
+	tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, cloudMarcherShader->getSRV());
 	tex2DShader->render(renderer->getDeviceContext(), screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with noise texture

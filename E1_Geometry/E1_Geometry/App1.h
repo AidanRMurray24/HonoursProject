@@ -8,6 +8,7 @@
 #include "SimpleRayMarcherShader.h"
 #include "TextureShader.h"
 #include "NoiseGeneratorShader.h"
+#include "CloudMarcherShader.h"
 #include "GPUTimer.h"
 
 class App1 : public BaseApplication
@@ -25,6 +26,7 @@ protected:
 	void NoiseGenPass();
 	void GeometryPass();
 	void RayMarchPass();
+	void CloudMarchPass();
 	void FinalPass();
 	void gui();
 
@@ -33,12 +35,12 @@ private:
 	ManipulationShader* manipulationShader;
 	SimpleRayMarcherShader* rayMarcherShader;
 	NoiseGeneratorShader* noiseGenShader;
+	CloudMarcherShader* cloudMarcherShader;
 	TextureShader* tex2DShader;
 	TextureShader* tex3DShader;
 
 	// Render textures
-	RenderTexture* rayMarchRT;
-	RenderTexture* noiseGenRT;
+	RenderTexture* sceneRT;
 	float noiseGenTexRes;
 
 	// Meshes
@@ -53,6 +55,10 @@ private:
 	GPUTimer* noiseTimer;
 	float elapsedTime;
 	double timetaken = 9;
+
+	// Screen info
+	int screenWidth;
+	int screenHeight;
 
 	bool textureGenerated;
 	bool showWorleyNoiseTexture;
