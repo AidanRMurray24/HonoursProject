@@ -2,7 +2,6 @@
 #define NUM_CELLS 5
 #define TOTAL_CELLS NUM_CELLS * NUM_CELLS * NUM_CELLS
 
-Texture2D Source : register(t0);
 RWTexture3D<float4> Result : register(u0);
 
 cbuffer PointBuffer : register(b0)
@@ -63,7 +62,7 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     float3 uv = id / (float)resolution;
 
     // Set the colour to the source render texture initially
-    float4 col = Source[id.xy];
+    float4 col = float4(0,0,0,0);
     Result[id.xyz] = col;
 
     // Make the texture tile
@@ -82,8 +81,8 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
         // If the cell is outside the texture, wrap around to the other side
         if (minComponent(adjCellID) == -1 || maxComponent(adjCellID) == NUM_CELLS)
         {
-            int3 wrappedID = (adjCellID + NUM_CELLS) % NUM_CELLS;
-            int adjCellIndex = wrappedID.x + (wrappedID.y + wrappedID.z * NUM_CELLS) * NUM_CELLS;
+            int3 wrappedID = (adjCellID + NUM_CELLS) % (uint3)NUM_CELLS;
+            int adjCellIndex = wrappedID.x + NUM_CELLS * (wrappedID.y + wrappedID.z * NUM_CELLS);
             float3 wrappedPoint = points[adjCellIndex];
 
             for (int wrapOffsetIndex = 0; wrapOffsetIndex < 27; wrapOffsetIndex++)
@@ -94,14 +93,14 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
         }
         else
         {
-            int adjCellIndex = adjCellID.x + (adjCellID.y + adjCellID.z * NUM_CELLS) * NUM_CELLS;
+            int adjCellIndex = adjCellID.x + NUM_CELLS * (adjCellID.y + adjCellID.z * NUM_CELLS);
             float3 dirVector = uv - points[adjCellIndex];
             minSqrDist = min(minSqrDist, dot(dirVector, dirVector));
         }
     }
 
     // Calculate the maximum distance by getting the distance across the diagonal of a cell
-    float2 cellSize = float2(cellInfo.z, cellInfo.z);
+    float3 cellSize = float3(cellInfo.z, cellInfo.z, cellInfo.z);
     float maxDist = sqrt(dot(cellSize, cellSize));
 
     // Normalise the distance by dividing it by the maximum distance

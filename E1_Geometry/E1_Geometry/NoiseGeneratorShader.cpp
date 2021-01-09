@@ -43,38 +43,7 @@ void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Sh
 
 void NoiseGeneratorShader::createOutputUAV()
 {
-	/*D3D11_TEXTURE2D_DESC textureDesc2D;
-	ZeroMemory(&textureDesc2D, sizeof(textureDesc2D));
-	textureDesc2D.Width = texWidth;
-	textureDesc2D.Height = texHeight;
-	textureDesc2D.MipLevels = 1;
-	textureDesc2D.ArraySize = 1;
-	textureDesc2D.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	textureDesc2D.SampleDesc.Count = 1;
-	textureDesc2D.SampleDesc.Quality = 0;
-	textureDesc2D.Usage = D3D11_USAGE_DEFAULT;
-	textureDesc2D.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-	textureDesc2D.CPUAccessFlags = 0;
-	textureDesc2D.MiscFlags = 0;
-	tex2D = 0;
-	renderer->CreateTexture2D(&textureDesc2D, 0, &tex2D);*/
-
-	//// Output texture
-	//D3D11_UNORDERED_ACCESS_VIEW_DESC descUAV;
-	//ZeroMemory(&descUAV, sizeof(descUAV));
-	//descUAV.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // DXGI_FORMAT_UNKNOWN;
-	//descUAV.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
-	//descUAV.Texture2D.MipSlice = 0;
-	//renderer->CreateUnorderedAccessView(tex2D, &descUAV, &m_uavAccess);
-
-	//// Source texture
-	//D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-	//srvDesc.Format = textureDesc.Format;
-	//srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	//srvDesc.Texture2D.MostDetailedMip = 0;
-	//srvDesc.Texture2D.MipLevels = 1;
-	//renderer->CreateShaderResourceView(tex2D, &srvDesc, &m_srvTexOutput);
-
+	// Setup the description for the 3D texture
 	D3D11_TEXTURE3D_DESC textureDesc3D;
 	ZeroMemory(&textureDesc3D, sizeof(textureDesc3D));
 	textureDesc3D.Width = texWidth;
@@ -89,7 +58,7 @@ void NoiseGeneratorShader::createOutputUAV()
 	tex3D = 0;
 	renderer->CreateTexture3D(&textureDesc3D, 0, &tex3D);
 
-	// Output texture
+	// Setup UAV for 3D texture
 	D3D11_UNORDERED_ACCESS_VIEW_DESC descUAV;
 	ZeroMemory(&descUAV, sizeof(descUAV));
 	descUAV.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // DXGI_FORMAT_UNKNOWN;
@@ -99,7 +68,7 @@ void NoiseGeneratorShader::createOutputUAV()
 	descUAV.Texture3D.WSize = texDepth;
 	renderer->CreateUnorderedAccessView(tex3D, &descUAV, &m_uavAccess);
 
-	// Source texture
+	// Setup SRV for 3D texture
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	ZeroMemory(&srvDesc, sizeof(srvDesc));
 	srvDesc.Format = textureDesc3D.Format;

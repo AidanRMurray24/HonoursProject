@@ -57,6 +57,7 @@ private:
 	bool textureGenerated;
 	bool showWorleyNoiseTexture;
 	float tileVal;
+	float sliceVal;
 };
 
 #endif

@@ -34,8 +34,9 @@ App1::App1()
 	textureGenerated = false;
 	showWorleyNoiseTexture = false;
 
-	// Floats
+	// Sliders
 	tileVal = 1.0f;
+	sliceVal = 0;
 }
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
@@ -203,7 +204,7 @@ void App1::NoiseGenPass()
 	// Generate noise texture
 	noiseGenShader->setShaderParameters(renderer->getDeviceContext(), noiseGenRT->getShaderResourceView(), tileVal);
 	noiseTimer->StartTimer();
-	noiseGenShader->compute(renderer->getDeviceContext(), ceil(noiseGenTexRes / 8.0f), ceil(noiseGenTexRes / 8.0f), 1);
+	noiseGenShader->compute(renderer->getDeviceContext(), ceil(noiseGenTexRes / 8.0f), ceil(noiseGenTexRes / 8.0f), ceil(noiseGenTexRes / 8.0f));
 	noiseGenShader->unbind(renderer->getDeviceContext());
 	noiseTimer->StopTimer();
 }
@@ -261,7 +262,7 @@ void App1::FinalPass()
 	if (showWorleyNoiseTexture)
 	{
 		noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
-		tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, noiseGenShader->getSRV());
+		tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, noiseGenShader->getSRV(), sliceVal);
 		tex3DShader->render(renderer->getDeviceContext(), noiseGenOrthoMesh->getIndexCount());
 	}
 
@@ -287,6 +288,7 @@ void App1::gui()
 	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
 	ImGui::Checkbox("Show Worley Noise Texture", &showWorleyNoiseTexture);
 	ImGui::SliderFloat("Tile Value", &tileVal, 0, 10);
+	ImGui::SliderFloat("Slice", &sliceVal, 0, 1);
 
 	// Render UI
 	ImGui::Render();
