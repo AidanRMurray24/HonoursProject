@@ -44,6 +44,7 @@ private:
 	float noiseGenTexRes;
 
 	// Meshes
+	CubeMesh* cubeMesh;
 	PlaneMesh* planeMesh;
 	OrthoMesh* screenOrthoMesh;
 	OrthoMesh* noiseGenOrthoMesh;

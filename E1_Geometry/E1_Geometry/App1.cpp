@@ -16,6 +16,7 @@ App1::App1()
 	sceneRT = nullptr;
 
 	// Meshes
+	cubeMesh = nullptr;
 	planeMesh = nullptr;
 	screenOrthoMesh = nullptr;
 	noiseGenOrthoMesh = nullptr;
@@ -29,7 +30,7 @@ App1::App1()
 	timetaken = 9;
 
 	// Floats
-	noiseGenTexRes = 512;
+	noiseGenTexRes = 128;
 
 	// Bools
 	textureGenerated = false;
@@ -65,9 +66,10 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	tex2DShader = new TextureShader(renderer->getDevice(), hwnd, TextureType::TEXTURE2D);
 	tex3DShader = new TextureShader(renderer->getDevice(), hwnd, TextureType::TEXTURE3D);
 	noiseGenShader = new NoiseGeneratorShader(renderer->getDevice(), hwnd, noiseGenTexRes, noiseGenTexRes, noiseGenTexRes);
-	cloudMarcherShader = new CloudMarcherShader(renderer->getDevice(), hwnd, screenWidth, screenHeight);
+	cloudMarcherShader = new CloudMarcherShader(renderer->getDevice(), hwnd, screenWidth, screenHeight, camera);
 
 	// Initialise Meshes
+	cubeMesh = new CubeMesh(renderer->getDevice(), renderer->getDeviceContext());
 	planeMesh = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext());
 	screenOrthoMesh = new OrthoMesh(renderer->getDevice(), renderer->getDeviceContext(), screenWidth, screenHeight);
 	noiseGenOrthoMesh = new OrthoMesh(renderer->getDevice(), renderer->getDeviceContext(), noiseGenTexRes, noiseGenTexRes);
@@ -239,6 +241,16 @@ void App1::GeometryPass()
 	manipulationShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"TerrainColour"), textureMgr->getTexture(L"heightMap"), light);
 	manipulationShader->render(renderer->getDeviceContext(), planeMesh->getIndexCount());
 
+	XMMATRIX cubeTransform;
+	XMMATRIX translation = XMMatrixTranslation(50,20,50);
+	XMMATRIX scale = XMMatrixScaling(50,5,50);
+	translation = worldMatrix * translation;
+	cubeTransform = scale * translation;
+
+	cubeMesh->sendData(renderer->getDeviceContext());
+	tex2DShader->setShaderParameters(renderer->getDeviceContext(), cubeTransform, viewMatrix, projectionMatrix, textureMgr->getTexture(L"brick"));
+	tex2DShader->render(renderer->getDeviceContext(), cubeMesh->getIndexCount());
+
 	// Set back buffer as render target and reset view port.
 	renderer->setBackBufferRenderTarget();
 	renderer->resetViewport();
@@ -255,7 +267,7 @@ void App1::RayMarchPass()
 void App1::CloudMarchPass()
 {
 	// Generate clouds
-	cloudMarcherShader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView());
+	cloudMarcherShader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), renderer->getProjectionMatrix());
 	cloudMarcherShader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
 	cloudMarcherShader->unbind(renderer->getDeviceContext());
 }
