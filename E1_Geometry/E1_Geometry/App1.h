@@ -10,6 +10,8 @@
 #include "NoiseGeneratorShader.h"
 #include "CloudMarcherShader.h"
 #include "GPUTimer.h"
+#include "DepthShader.h"
+#include "CloudContainer.h"
 
 class App1 : public BaseApplication
 {
@@ -25,12 +27,15 @@ protected:
 	bool render();
 	void NoiseGenPass();
 	void GeometryPass();
+	void DepthPass();
 	void RayMarchPass();
 	void CloudMarchPass();
 	void FinalPass();
 	void gui();
 
 private:
+	void LoadAssets(HWND hwnd);
+
 	// Shaders
 	ManipulationShader* manipulationShader;
 	SimpleRayMarcherShader* rayMarcherShader;
@@ -41,7 +46,7 @@ private:
 
 	// Render textures
 	RenderTexture* sceneRT;
-	float noiseGenTexRes;
+	RenderTexture* sceneDepthRT;
 
 	// Meshes
 	CubeMesh* cubeMesh;
@@ -57,12 +62,16 @@ private:
 	float elapsedTime;
 	double timetaken = 9;
 
+	// Scene objects
+	CloudContainer* cloudContainer;
+
 	// Screen info
 	int screenWidth;
 	int screenHeight;
 
 	bool textureGenerated;
 	bool showWorleyNoiseTexture;
+	float noiseGenTexRes;
 	float tileVal;
 	float sliceVal;
 };

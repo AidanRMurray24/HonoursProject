@@ -164,21 +164,30 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="App1.cpp" />
+    <ClCompile Include="CloudContainer.cpp" />
     <ClCompile Include="CloudMarcherShader.cpp" />
+    <ClCompile Include="DepthShader.cpp" />
     <ClCompile Include="GPUTimer.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="ManipulationShader.cpp" />
     <ClCompile Include="NoiseGeneratorShader.cpp" />
+    <ClCompile Include="SceneObject.cpp" />
     <ClCompile Include="SimpleRayMarcherShader.cpp" />
+    <ClCompile Include="SystemParams.cpp" />
     <ClCompile Include="TextureShader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App1.h" />
+    <ClInclude Include="Assets.h" />
+    <ClInclude Include="CloudContainer.h" />
     <ClInclude Include="CloudMarcherShader.h" />
+    <ClInclude Include="DepthShader.h" />
     <ClInclude Include="GPUTimer.h" />
     <ClInclude Include="ManipulationShader.h" />
     <ClInclude Include="NoiseGeneratorShader.h" />
+    <ClInclude Include="SceneObject.h" />
     <ClInclude Include="SimpleRayMarcherShader.h" />
+    <ClInclude Include="SystemParams.h" />
     <ClInclude Include="TextureShader.h" />
   </ItemGroup>
   <ItemGroup>
@@ -196,6 +205,12 @@
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="shaders\depth_ps.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="shaders\depth_vs.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
     </FxCompile>
     <FxCompile Include="shaders\manipulation_ps.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>

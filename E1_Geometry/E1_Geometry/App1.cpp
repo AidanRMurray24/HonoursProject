@@ -1,5 +1,6 @@
 // Lab1.cpp
 // Lab 1 example, simple coloured triangle mesh
+#include "SystemParams.h"
 #include "App1.h"
 
 App1::App1()
@@ -14,6 +15,7 @@ App1::App1()
 
 	// Render textures
 	sceneRT = nullptr;
+	sceneDepthRT = nullptr;
 
 	// Meshes
 	cubeMesh = nullptr;
@@ -43,11 +45,15 @@ App1::App1()
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
 {
+
 	screenWidth = _screenWidth;
 	screenHeight = _screenHeight;
 
 	// Call super/parent init function (required!)
 	BaseApplication::init(hinstance, hwnd, screenWidth, screenHeight, in, VSYNC, FULL_SCREEN);
+	SystemParams::GetInstance().SetRenderer(renderer);
+
+	LoadAssets(hwnd);
 
 	// Load textures
 	textureMgr->loadTexture(L"brick", L"res/brick1.dds");
@@ -60,8 +66,9 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	light->setDiffuseColour(1.0f, 1.0f, 1.0f, 1.0f);
 	light->setDirection(0.7f, -0.7f, 0.0f);
 
+
 	// Initialise Shaders
-	manipulationShader = new ManipulationShader(renderer->getDevice(), hwnd);
+	manipulationShader = new ManipulationShader(SystemParams::GetInstance().GetRenderer()->getDevice(), hwnd);
 	rayMarcherShader = new SimpleRayMarcherShader(renderer->getDevice(), hwnd, screenWidth, screenHeight, camera, light);
 	tex2DShader = new TextureShader(renderer->getDevice(), hwnd, TextureType::TEXTURE2D);
 	tex3DShader = new TextureShader(renderer->getDevice(), hwnd, TextureType::TEXTURE3D);
@@ -79,6 +86,10 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 
 	// Initialise Render Textures
 	sceneRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 100.f);
+	sceneDepthRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 100.f);
+
+	// Initialise scene objects
+	cloudContainer = new CloudContainer();
 }
 
 
@@ -159,6 +170,12 @@ App1::~App1()
 			delete sceneRT;
 			sceneRT = 0;
 		}
+
+		if (sceneDepthRT)
+		{
+			delete sceneDepthRT;
+			sceneDepthRT = 0;
+		}
 	}
 
 	// Timers
@@ -167,6 +184,15 @@ App1::~App1()
 		{
 			delete noiseTimer;
 			noiseTimer = 0;
+		}
+	}
+
+	// Scene Objects
+	{
+		if (cloudContainer)
+		{
+			delete cloudContainer;
+			cloudContainer = 0;
 		}
 	}
 }
@@ -208,6 +234,7 @@ bool App1::render()
 		NoiseGenPass();
 	}
 	GeometryPass();
+	DepthPass();
 	RayMarchPass();
 	CloudMarchPass();
 	FinalPass();
@@ -241,15 +268,23 @@ void App1::GeometryPass()
 	manipulationShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"TerrainColour"), textureMgr->getTexture(L"heightMap"), light);
 	manipulationShader->render(renderer->getDeviceContext(), planeMesh->getIndexCount());
 
-	XMMATRIX cubeTransform;
-	XMMATRIX translation = XMMatrixTranslation(50,20,50);
-	XMMATRIX scale = XMMatrixScaling(50,5,50);
-	translation = worldMatrix * translation;
-	cubeTransform = scale * translation;
+	cloudContainer->Render(viewMatrix, projectionMatrix, textureMgr->getTexture(L"brick"));
+	/*cubeMesh->sendData(renderer->getDeviceContext());
+	tex2DShader->setShaderParameters(renderer->getDeviceContext(), cloudContainer->GetTransform(), viewMatrix, projectionMatrix, textureMgr->getTexture(L"brick"));
+	tex2DShader->render(renderer->getDeviceContext(), cubeMesh->getIndexCount());*/
 
-	cubeMesh->sendData(renderer->getDeviceContext());
-	tex2DShader->setShaderParameters(renderer->getDeviceContext(), cubeTransform, viewMatrix, projectionMatrix, textureMgr->getTexture(L"brick"));
-	tex2DShader->render(renderer->getDeviceContext(), cubeMesh->getIndexCount());
+	// Set back buffer as render target and reset view port.
+	renderer->setBackBufferRenderTarget();
+	renderer->resetViewport();
+}
+
+void App1::DepthPass()
+{
+	// Set the render target to the render texture
+	sceneDepthRT->setRenderTarget(renderer->getDeviceContext());
+	sceneDepthRT->clearRenderTarget(renderer->getDeviceContext(), 0.39f, 0.58f, 0.92f, 1.0f);
+
+
 
 	// Set back buffer as render target and reset view port.
 	renderer->setBackBufferRenderTarget();
@@ -292,10 +327,10 @@ void App1::FinalPass()
 	tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, rayMarcherShader->getSRV());
 	tex2DShader->render(renderer->getDeviceContext(), screenOrthoMesh->getIndexCount());
 
-	// Render clouds
-	screenOrthoMesh->sendData(renderer->getDeviceContext());
-	tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, cloudMarcherShader->getSRV());
-	tex2DShader->render(renderer->getDeviceContext(), screenOrthoMesh->getIndexCount());
+	//// Render clouds
+	//screenOrthoMesh->sendData(renderer->getDeviceContext());
+	//tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, cloudMarcherShader->getSRV());
+	//tex2DShader->render(renderer->getDeviceContext(), screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with noise texture
 	if (showWorleyNoiseTexture)
@@ -332,4 +367,25 @@ void App1::gui()
 	// Render UI
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+}
+
+void App1::LoadAssets(HWND hwnd)
+{
+	Assets& assets = SystemParams::GetInstance().GetAssets();
+	ID3D11Device* device = SystemParams::GetInstance().GetRenderer()->getDevice();
+	ID3D11DeviceContext* deviceContext = SystemParams::GetInstance().GetRenderer()->getDeviceContext();
+
+	// Initialise Shaders
+	assets.manipulationShader = new ManipulationShader(device, hwnd);
+	assets.rayMarcherShader = new SimpleRayMarcherShader(device, hwnd, screenWidth, screenHeight, camera, light);
+	assets.tex2DShader = new TextureShader(device, hwnd, TextureType::TEXTURE2D);
+	assets.tex3DShader = new TextureShader(device, hwnd, TextureType::TEXTURE3D);
+	assets.noiseGenShader = new NoiseGeneratorShader(device, hwnd, noiseGenTexRes, noiseGenTexRes, noiseGenTexRes);
+	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, screenWidth, screenHeight, camera);
+
+	// Initialise Meshes
+	assets.cubeMesh = new CubeMesh(device, deviceContext);
+	assets.planeMesh = new PlaneMesh(device, deviceContext);
+	assets.screenOrthoMesh = new OrthoMesh(device, deviceContext, screenWidth, screenHeight);
+	assets.noiseGenOrthoMesh = new OrthoMesh(device, deviceContext, noiseGenTexRes, noiseGenTexRes);
 }
