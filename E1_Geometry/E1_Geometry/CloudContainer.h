@@ -7,7 +7,7 @@ public:
 	CloudContainer();
 	~CloudContainer();
 
-	void Render(XMMATRIX view, XMMATRIX proj, ID3D11ShaderResourceView* texture);
+	void Render();
 
 private:
 

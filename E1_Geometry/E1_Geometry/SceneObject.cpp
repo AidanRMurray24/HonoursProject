@@ -1,17 +1,19 @@
 #include "SceneObject.h"
+#include "SystemParams.h"
+#include "Assets.h"
+#include "DepthShader.h"
 
 SceneObject::SceneObject()
 {
-	position = XMFLOAT3(0, 0, 0);
-	scale = XMFLOAT3(0, 0, 0);
-	eulerRotation = XMFLOAT3(0, 0, 0);
-
 	transform = XMMatrixIdentity();
 	translationM = XMMatrixIdentity();
 	scaleM = XMMatrixIdentity();
 	rotationM = XMMatrixIdentity();
-
 	parent = nullptr;
+
+	SetPosition(0, 0, 0);
+	SetScale(1, 1, 1);
+	SetRotation(0, 0, 0);
 }
 
 SceneObject::~SceneObject()
@@ -28,6 +30,18 @@ void SceneObject::Update(float deltaTime)
 
 void SceneObject::Render()
 {
+}
+
+void SceneObject::RenderDepthFromCamera()
+{
+	ID3D11DeviceContext* deviceContext = SystemParams::GetInstance().GetRenderer()->getDeviceContext();
+	XMMATRIX projectionMatrix = SystemParams::GetInstance().GetRenderer()->getProjectionMatrix();
+	FPCamera* cam = SystemParams::GetInstance().GetMainCamera();
+	Assets& assets = SystemParams::GetInstance().GetAssets();
+
+	GetMesh()->sendData(deviceContext);
+	assets.depthShader->setShaderParameters(deviceContext, GetTransform(), cam->getViewMatrix(), projectionMatrix);
+	assets.depthShader->render(deviceContext, GetMesh()->getIndexCount());
 }
 
 void SceneObject::SetPosition(XMFLOAT3 val)

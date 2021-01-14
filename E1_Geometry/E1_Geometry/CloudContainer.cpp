@@ -1,28 +1,33 @@
 #include "CloudContainer.h"
 #include "SystemParams.h"
 #include "CubeMesh.h"
-#include "TextureShader.h"
 #include "Assets.h"
+
+// Shaders
+#include "TextureShader.h"
+#include "DepthShader.h"
 
 CloudContainer::CloudContainer() : SceneObject()
 {
 	// Set default values
 	SetPosition(50, 20, 50);
 	SetScale(50, 5, 50);
+	SetMesh(SystemParams::GetInstance().GetAssets().cubeMesh);
 }
 
 CloudContainer::~CloudContainer()
 {
 }
 
-void CloudContainer::Render(XMMATRIX view, XMMATRIX proj, ID3D11ShaderResourceView* texture)
+void CloudContainer::Render()
 {
 	ID3D11DeviceContext* deviceContext = SystemParams::GetInstance().GetRenderer()->getDeviceContext();
-	Assets assets = SystemParams::GetInstance().GetAssets();
-	CubeMesh* mesh = assets.cubeMesh;
-	TextureShader* shader = assets.tex2DShader;
+	XMMATRIX projectionMatrix = SystemParams::GetInstance().GetRenderer()->getProjectionMatrix();
+	FPCamera* cam = SystemParams::GetInstance().GetMainCamera();
+	Assets& assets = SystemParams::GetInstance().GetAssets();
+	ID3D11ShaderResourceView* texture = assets.brickTexture;
 
-	mesh->sendData(deviceContext);
-	shader->setShaderParameters(deviceContext, GetTransform(), view, proj, texture);
-	shader->render(deviceContext, mesh->getIndexCount());
+	GetMesh()->sendData(deviceContext);
+	assets.tex2DShader->setShaderParameters(deviceContext, GetTransform(), cam->getViewMatrix(), projectionMatrix, texture);
+	assets.tex2DShader->render(deviceContext, GetMesh()->getIndexCount());
 }

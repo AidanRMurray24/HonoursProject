@@ -4,14 +4,12 @@
 
 // Includes
 #include "../DXFramework/DXF.h"
-#include "ManipulationShader.h"
-#include "SimpleRayMarcherShader.h"
-#include "TextureShader.h"
-#include "NoiseGeneratorShader.h"
-#include "CloudMarcherShader.h"
 #include "GPUTimer.h"
-#include "DepthShader.h"
+#include <vector>
+
+// Scene objects
 #include "CloudContainer.h"
+#include "TerrainPlane.h"
 
 class App1 : public BaseApplication
 {
@@ -36,23 +34,9 @@ protected:
 private:
 	void LoadAssets(HWND hwnd);
 
-	// Shaders
-	ManipulationShader* manipulationShader;
-	SimpleRayMarcherShader* rayMarcherShader;
-	NoiseGeneratorShader* noiseGenShader;
-	CloudMarcherShader* cloudMarcherShader;
-	TextureShader* tex2DShader;
-	TextureShader* tex3DShader;
-
 	// Render textures
 	RenderTexture* sceneRT;
 	RenderTexture* sceneDepthRT;
-
-	// Meshes
-	CubeMesh* cubeMesh;
-	PlaneMesh* planeMesh;
-	OrthoMesh* screenOrthoMesh;
-	OrthoMesh* noiseGenOrthoMesh;
 	
 	// Lights
 	Light* light;
@@ -63,7 +47,9 @@ private:
 	double timetaken = 9;
 
 	// Scene objects
+	std::vector<SceneObject*> sceneObjects;
 	CloudContainer* cloudContainer;
+	TerrainPlane* terrainPlane;
 
 	// Screen info
 	int screenWidth;
