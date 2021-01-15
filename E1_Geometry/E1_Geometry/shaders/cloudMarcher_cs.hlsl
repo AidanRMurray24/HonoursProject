@@ -1,6 +1,11 @@
 
+SamplerState sampler0 : register(s0);
 Texture2D Source : register(t0);
+Texture2D depthMap : register(t1);
 RWTexture2D<float4> Result : register(u0);
+
+float cloudScale = 1;
+float cloudOffset = 1;
 
 cbuffer CameraBuffer : register(b0)
 {
@@ -60,13 +65,31 @@ float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 in
     return float2(dstToBox, dstInsideBox);
 }
 
+float LinearEyeDepth(float z)
+{
+    float near = 0.1f;
+    float far = 1000.f;
+    float4 zBufferParams;
+    zBufferParams.x = 1.0f - (far / near);
+    zBufferParams.y = far / near;
+    zBufferParams.z = zBufferParams.x / far;
+    zBufferParams.w = zBufferParams.y / far;
+    return 1.0f / (zBufferParams.z * z + zBufferParams.w);
+}
+
+float SampleDesity(float3 position)
+{
+    //float3 uvw = position * 
+    return float3(0,0,0);
+}
+
 [numthreads(8, 8, 1)]
 void main( int3 id : SV_DispatchThreadID )
 {
     // Get the UVs of the screen
     float2 resolution = float2(0, 0);
     Result.GetDimensions(resolution.x, resolution.y);
-    float2 uv = (id.xy / float2(resolution.x, resolution.y) * 2 - 1) * float2(1, -1);
+    float2 uv = (id.xy / resolution * 2 - 1) * float2(1, -1);
 
     // Set the colour to the source render texture initially
     float4 col = Source[id.xy];
@@ -77,16 +100,24 @@ void main( int3 id : SV_DispatchThreadID )
     float3 ro = cameraRay.origin;
     float3 rd = cameraRay.direction;
 
+    // Get the ray distance information from the box
     float2 rayBoxInfo = RayBoxDst(containerBoundsMin.xyz, containerBoundsMax.xyz, ro, 1/rd);
     float dstToBox = rayBoxInfo.x;
     float dstInsideBox = rayBoxInfo.y;
 
-    bool rayHitBox = dstInsideBox > 0;
+    // Calculate the depth
+    float3 viewVector = mul(invProjectionMatrix, float4(uv, 0, 1)).xyz;
+    viewVector = mul(invViewMatrix, float4(viewVector, 0)).xyz;
+    float nonLinearDepth = depthMap[id.xy].x;
+    float depth = LinearEyeDepth(nonLinearDepth) * length(viewVector);
+
+    // Only shade black if inside the box
+    bool rayHitBox = dstInsideBox > 0 && dstToBox < depth;
     if (rayHitBox)
     {
         col = 0;
     }
 
-    Result[id.xy] = ro.xyzz;
     Result[id.xy] = col;
+    //Result[id.xy] = float4(depth, depth, depth,1);
 }

@@ -41,6 +41,6 @@ void TerrainPlane::RenderDepthFromCamera()
 	Assets& assets = SystemParams::GetInstance().GetAssets();
 
 	GetMesh()->sendData(deviceContext);
-	assets.depthShader->setShaderParameters(deviceContext, GetTransform(), cam->getViewMatrix(), projectionMatrix);
+	assets.depthShader->setShaderParameters(deviceContext, GetTransform(), cam->getViewMatrix(), projectionMatrix, true);
 	assets.depthShader->render(deviceContext, GetMesh()->getIndexCount());
 }

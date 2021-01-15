@@ -66,11 +66,11 @@
     <ClCompile Include="GPUTimer.cpp">
       <Filter>Source Files\Tools</Filter>
     </ClCompile>
-    <ClCompile Include="SystemParams.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="TerrainPlane.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\SceneObjects</Filter>
+    </ClCompile>
+    <ClCompile Include="SystemParams.cpp">
+      <Filter>Source Files\Tools</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -104,14 +104,14 @@
     <ClInclude Include="GPUTimer.h">
       <Filter>Header Files\Tools</Filter>
     </ClInclude>
-    <ClInclude Include="SystemParams.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Assets.h">
       <Filter>Header Files\Tools</Filter>
     </ClInclude>
+    <ClInclude Include="SystemParams.h">
+      <Filter>Header Files\Tools</Filter>
+    </ClInclude>
     <ClInclude Include="TerrainPlane.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\SceneObjects</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

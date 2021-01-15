@@ -15,10 +15,11 @@ CloudMarcherShader::~CloudMarcherShader()
 {
 }
 
-void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, const XMMATRIX& projectionMatrix)
+void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, const XMMATRIX& projectionMatrix, CloudContainer* container)
 {
 	// Pass the source texture and the texture to be modified to the shader
 	dc->CSSetShaderResources(0, 1, &sourceTexture);
+	dc->CSSetShaderResources(1, 1, &depthMap);
 	dc->CSSetUnorderedAccessViews(0, 1, &uavTexAccess, 0);
 
 	// Pass in buffer data
@@ -43,10 +44,12 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	ContainerInfoBufferType* containerPtr;
 	dc->Map(containerInfoBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	containerPtr = (ContainerInfoBufferType*)mappedResource.pData;
-	containerPtr->boundsMin = XMFLOAT4(0,15,0,0);
-	containerPtr->boundsMax = XMFLOAT4(100, 25, 100,0);
+	containerPtr->boundsMin = XMFLOAT4(container->GetBoundsMin().x, container->GetBoundsMin().y, container->GetBoundsMin().z, 0);
+	containerPtr->boundsMax = XMFLOAT4(container->GetBoundsMax().x, container->GetBoundsMax().y, container->GetBoundsMax().z, 0);
 	dc->Unmap(containerInfoBuffer, 0);
 	dc->CSSetConstantBuffers(1, 1, &containerInfoBuffer);
+
+	dc->CSSetSamplers(0, 1, &sampleState);
 }
 
 void CloudMarcherShader::createGPUViews()
@@ -90,6 +93,7 @@ void CloudMarcherShader::unbind(ID3D11DeviceContext* dc)
 {
 	ID3D11ShaderResourceView* nullSRV[] = { NULL };
 	dc->CSSetShaderResources(0, 1, nullSRV);
+	dc->CSSetShaderResources(1, 1, nullSRV);
 
 	// Unbind output from compute shader
 	ID3D11UnorderedAccessView* nullUAV[] = { NULL };
@@ -128,4 +132,17 @@ void CloudMarcherShader::InitBuffers()
 	containerBufferDesc.MiscFlags = 0;
 	containerBufferDesc.StructureByteStride = 0;
 	renderer->CreateBuffer(&containerBufferDesc, NULL, &containerInfoBuffer);
+
+	// Create a texture sampler state description.
+	D3D11_SAMPLER_DESC samplerDesc;
+	samplerDesc.Filter = D3D11_FILTER_ANISOTROPIC;
+	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.MipLODBias = 0.0f;
+	samplerDesc.MaxAnisotropy = 1;
+	samplerDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
+	samplerDesc.MinLOD = 0;
+	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
+	renderer->CreateSamplerState(&samplerDesc, &sampleState);
 }

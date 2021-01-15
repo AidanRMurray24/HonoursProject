@@ -9,7 +9,12 @@ public:
 
 	void Render();
 
-private:
+	// Getters
+	inline XMFLOAT3 GetBoundsMin() { return boundsMin; }
+	inline XMFLOAT3 GetBoundsMax() { return boundsMax; }
 
+private:
+	XMFLOAT3 boundsMin;
+	XMFLOAT3 boundsMax;
 };
 

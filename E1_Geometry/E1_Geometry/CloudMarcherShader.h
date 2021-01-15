@@ -1,5 +1,6 @@
 #pragma once
 #include "../DXFramework/DXF.h"
+#include "CloudContainer.h"
 
 using namespace DirectX;
 
@@ -23,7 +24,7 @@ public:
 	CloudMarcherShader(ID3D11Device* device, HWND hwnd, int _screenWidth, int _screenHeight, Camera* _cam);
 	~CloudMarcherShader();
 
-	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, const XMMATRIX& projectionMatrix);
+	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, const XMMATRIX& projectionMatrix, CloudContainer* container);
 	void createGPUViews();
 	void unbind(ID3D11DeviceContext* dc);
 	inline ID3D11ShaderResourceView* getSRV() { return srvTexOutput; }
@@ -42,6 +43,8 @@ private:
 	// Buffers
 	ID3D11Buffer* cameraBuffer;
 	ID3D11Buffer* containerInfoBuffer;
+
+	ID3D11SamplerState* sampleState;
 
 	// Screen dimentions
 	int screenWidth;

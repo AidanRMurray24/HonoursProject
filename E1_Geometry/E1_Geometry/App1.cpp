@@ -61,8 +61,8 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	noiseTimer = new GPUTimer(renderer->getDevice(), renderer->getDeviceContext());
 
 	// Initialise Render Textures
-	sceneRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 100.f);
-	sceneDepthRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 100.f);
+	sceneRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 1000.f);
+	sceneDepthRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 1000.f);
 
 	// Initialise scene objects
 	cloudContainer = new CloudContainer();
@@ -190,7 +190,7 @@ void App1::GeometryPass()
 	
 	// Render scene objects
 	terrainPlane->Render(light);
-	cloudContainer->Render();
+	//cloudContainer->Render();
 
 	// Set back buffer as render target and reset view port.
 	renderer->setBackBufferRenderTarget();
@@ -201,10 +201,9 @@ void App1::DepthPass()
 {
 	// Set the render target to the render texture
 	sceneDepthRT->setRenderTarget(renderer->getDeviceContext());
-	sceneDepthRT->clearRenderTarget(renderer->getDeviceContext(), 0.39f, 0.58f, 0.92f, 1.0f);
+	sceneDepthRT->clearRenderTarget(renderer->getDeviceContext(), 1, 0, 0, 1.0f);
 
 	terrainPlane->RenderDepthFromCamera();
-	cloudContainer->RenderDepthFromCamera();
 
 	// Set back buffer as render target and reset view port.
 	renderer->setBackBufferRenderTarget();
@@ -226,7 +225,7 @@ void App1::CloudMarchPass()
 	CloudMarcherShader* shader = SystemParams::GetInstance().GetAssets().cloudMarcherShader;
 
 	// Generate clouds
-	shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), renderer->getProjectionMatrix());
+	shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), renderer->getProjectionMatrix(), cloudContainer);
 	shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
 	shader->unbind(renderer->getDeviceContext());
 }
@@ -258,10 +257,10 @@ void App1::FinalPass()
 	assets.tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, sceneDepthRT->getShaderResourceView());
 	assets.tex2DShader->render(renderer->getDeviceContext(), assets.screenOrthoMesh->getIndexCount());
 
-	//// Render clouds
-	//assets.screenOrthoMesh->sendData(renderer->getDeviceContext());
-	//assets.tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets.cloudMarcherShader->getSRV());
-	//assets.tex2DShader->render(renderer->getDeviceContext(), assets.screenOrthoMesh->getIndexCount());
+	// Render clouds
+	assets.screenOrthoMesh->sendData(renderer->getDeviceContext());
+	assets.tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets.cloudMarcherShader->getSRV());
+	assets.tex2DShader->render(renderer->getDeviceContext(), assets.screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with noise texture
 	if (showWorleyNoiseTexture)

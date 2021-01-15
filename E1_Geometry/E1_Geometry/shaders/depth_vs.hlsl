@@ -1,4 +1,4 @@
-Texture2D texture0 : register(t0);
+Texture2D heightMapTexture : register(t0);
 SamplerState sampler0 : register(s0);
 
 cbuffer MatrixBuffer : register(b0)
@@ -10,8 +10,7 @@ cbuffer MatrixBuffer : register(b0)
 
 cbuffer HeightMapBuffer : register(b1)
 {
-	float hasHeightMap;
-	float height;
+	float4 heightMapSettings; // x = hasHeightMap?, y = height
 }
 
 struct InputType
@@ -32,10 +31,10 @@ OutputType main(InputType input)
     OutputType output;
 
 	// Calculate height map if there is one
-	if (hasHeightMap > 0.1)
+	if (heightMapSettings.x > 0)
 	{
-		float4 textureColor = texture0.SampleLevel(sampler0, input.tex, 0);
-		input.position.y += textureColor.x * height;
+		float4 textureColor = heightMapTexture.SampleLevel(sampler0, input.tex, 0);
+		input.position.y += textureColor.x * heightMapSettings.y;
 	}
 
     // Calculate the position of the vertex against the world, view, and projection matrices.
