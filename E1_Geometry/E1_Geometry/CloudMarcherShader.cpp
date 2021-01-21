@@ -15,11 +15,12 @@ CloudMarcherShader::~CloudMarcherShader()
 {
 }
 
-void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, const XMMATRIX& projectionMatrix, CloudContainer* container)
+void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* noiseTex,  const XMMATRIX& projectionMatrix, CloudContainer* container)
 {
 	// Pass the source texture and the texture to be modified to the shader
 	dc->CSSetShaderResources(0, 1, &sourceTexture);
 	dc->CSSetShaderResources(1, 1, &depthMap);
+	dc->CSSetShaderResources(2, 1, &noiseTex);
 	dc->CSSetUnorderedAccessViews(0, 1, &uavTexAccess, 0);
 
 	// Pass in buffer data
@@ -94,6 +95,7 @@ void CloudMarcherShader::unbind(ID3D11DeviceContext* dc)
 	ID3D11ShaderResourceView* nullSRV[] = { NULL };
 	dc->CSSetShaderResources(0, 1, nullSRV);
 	dc->CSSetShaderResources(1, 1, nullSRV);
+	dc->CSSetShaderResources(2, 1, nullSRV);
 
 	// Unbind output from compute shader
 	ID3D11UnorderedAccessView* nullUAV[] = { NULL };

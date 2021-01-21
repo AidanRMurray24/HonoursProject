@@ -10,12 +10,16 @@
 #include "NoiseGeneratorShader.h"
 #include "CloudMarcherShader.h"
 #include "DepthShader.h"
+#include "CloudFragShader.h"
 
 App1::App1()
 {
+	assets = nullptr;
+
 	// Render textures
 	sceneRT = nullptr;
 	sceneDepthRT = nullptr;
+	cloudFragRT = nullptr;
 
 	// Lights
 	light = nullptr;
@@ -39,7 +43,6 @@ App1::App1()
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
 {
-
 	screenWidth = _screenWidth;
 	screenHeight = _screenHeight;
 
@@ -47,7 +50,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	BaseApplication::init(hinstance, hwnd, screenWidth, screenHeight, in, VSYNC, FULL_SCREEN);
 	SystemParams::GetInstance().SetRenderer(renderer);
 	SystemParams::GetInstance().SetMainCamera(camera);
-
+	assets = &SystemParams::GetInstance().GetAssets();
 
 	// Initialise Lights
 	light = new Light;
@@ -63,6 +66,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	// Initialise Render Textures
 	sceneRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 1000.f);
 	sceneDepthRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 1000.f);
+	cloudFragRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 1000.f);
 
 	// Initialise scene objects
 	cloudContainer = new CloudContainer();
@@ -165,6 +169,7 @@ bool App1::render()
 	DepthPass();
 	RayMarchPass();
 	CloudMarchPass();
+	CloudFragPass();
 	FinalPass();
 
 	return true;
@@ -225,9 +230,28 @@ void App1::CloudMarchPass()
 	CloudMarcherShader* shader = SystemParams::GetInstance().GetAssets().cloudMarcherShader;
 
 	// Generate clouds
-	shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), renderer->getProjectionMatrix(), cloudContainer);
+	shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->noiseGenShader->getSRV(), renderer->getProjectionMatrix(), cloudContainer);
 	shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
 	shader->unbind(renderer->getDeviceContext());
+}
+
+void App1::CloudFragPass()
+{
+	// Set the render target to be the render to texture and clear it
+	cloudFragRT->setRenderTarget(renderer->getDeviceContext());
+	cloudFragRT->clearRenderTarget(renderer->getDeviceContext(), 0.0f, 0.0f, 1.0f, 1.0f);
+
+	XMMATRIX worldMatrix = renderer->getWorldMatrix();
+
+	renderer->setZBuffer(false);
+	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
+	assets->cloudFragShader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->noiseGenShader->getSRV(), worldMatrix, cloudFragRT->getOrthoMatrix(), cloudContainer);
+	assets->cloudFragShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
+	renderer->setZBuffer(true);
+
+	// Reset the render target back to the original back buffer and not the render to texture anymore.
+	renderer->setBackBufferRenderTarget();
+	renderer->resetViewport();
 }
 
 void App1::FinalPass()
@@ -244,30 +268,33 @@ void App1::FinalPass()
 	XMMATRIX baseViewMatrix = camera->getOrthoViewMatrix();
 
 	renderer->setZBuffer(false);
-
-	Assets& assets = SystemParams::GetInstance().GetAssets();
 	
 	// Render ortho mesh with ray march
-	assets.screenOrthoMesh->sendData(renderer->getDeviceContext());
-	assets.tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets.rayMarcherShader->getSRV());
-	assets.tex2DShader->render(renderer->getDeviceContext(), assets.screenOrthoMesh->getIndexCount());
+	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
+	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->rayMarcherShader->getSRV());
+	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with depth map
-	assets.screenOrthoMesh->sendData(renderer->getDeviceContext());
-	assets.tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, sceneDepthRT->getShaderResourceView());
-	assets.tex2DShader->render(renderer->getDeviceContext(), assets.screenOrthoMesh->getIndexCount());
+	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
+	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, sceneDepthRT->getShaderResourceView());
+	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
 	// Render clouds
-	assets.screenOrthoMesh->sendData(renderer->getDeviceContext());
-	assets.tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets.cloudMarcherShader->getSRV());
-	assets.tex2DShader->render(renderer->getDeviceContext(), assets.screenOrthoMesh->getIndexCount());
+	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
+	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->cloudMarcherShader->getSRV());
+	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
+
+	// Render frag clouds
+	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
+	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, cloudFragRT->getShaderResourceView());
+	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with noise texture
 	if (showWorleyNoiseTexture)
 	{
-		assets.noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
-		assets.tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets.noiseGenShader->getSRV(), sliceVal);
-		assets.tex3DShader->render(renderer->getDeviceContext(), assets.noiseGenOrthoMesh->getIndexCount());
+		assets->noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
+		assets->tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->noiseGenShader->getSRV(), sliceVal);
+		assets->tex3DShader->render(renderer->getDeviceContext(), assets->noiseGenOrthoMesh->getIndexCount());
 	}
 
 	renderer->setZBuffer(true);
@@ -313,6 +340,7 @@ void App1::LoadAssets(HWND hwnd)
 	assets.noiseGenShader = new NoiseGeneratorShader(device, hwnd, noiseGenTexRes, noiseGenTexRes, noiseGenTexRes);
 	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, screenWidth, screenHeight, camera);
 	assets.depthShader = new DepthShader(device, hwnd);
+	assets.cloudFragShader = new CloudFragShader(device, hwnd, screenWidth, screenHeight, camera);
 
 	// Initialise Meshes
 	assets.cubeMesh = new CubeMesh(device, deviceContext);

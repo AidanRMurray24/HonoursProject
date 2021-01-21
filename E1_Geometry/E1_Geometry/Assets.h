@@ -10,6 +10,7 @@ struct Assets
 	class TextureShader* tex2DShader = nullptr;
 	class TextureShader* tex3DShader = nullptr;
 	class DepthShader* depthShader = nullptr;
+	class CloudFragShader* cloudFragShader = nullptr;
 
 	// Meshes
 	class CubeMesh* cubeMesh = nullptr;

@@ -28,15 +28,19 @@ protected:
 	void DepthPass();
 	void RayMarchPass();
 	void CloudMarchPass();
+	void CloudFragPass();
 	void FinalPass();
 	void gui();
 
 private:
 	void LoadAssets(HWND hwnd);
 
+	class Assets* assets;
+
 	// Render textures
 	RenderTexture* sceneRT;
 	RenderTexture* sceneDepthRT;
+	RenderTexture* cloudFragRT;
 	
 	// Lights
 	Light* light;
