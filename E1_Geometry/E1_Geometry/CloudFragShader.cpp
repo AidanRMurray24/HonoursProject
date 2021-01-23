@@ -1,4 +1,5 @@
 #include "CloudFragShader.h"
+#include "SystemParams.h"
 
 CloudFragShader::CloudFragShader(ID3D11Device* device, HWND hwnd, int w, int h, Camera* _cam) : BaseShader(device, hwnd)
 {
@@ -15,18 +16,13 @@ CloudFragShader::~CloudFragShader()
 
 void CloudFragShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* noiseTex, const XMMATRIX& worldMatrix, const XMMATRIX& projectionMatrix, CloudContainer* container)
 {
-	// Pass the source texture and the texture to be modified to the shader
-	dc->PSSetShaderResources(0, 1, &sourceTexture);
-	dc->PSSetShaderResources(1, 1, &depthMap);
-	dc->PSSetShaderResources(2, 1, &noiseTex);
-
 	// Pass in buffer data
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 
 	// Get the inverse of the view and projection matrices to be used in the shader
 	XMMATRIX invView, invProjection;
 	invView = XMMatrixInverse(nullptr, cam->getViewMatrix());
-	invProjection = XMMatrixInverse(nullptr, projectionMatrix);
+	invProjection = XMMatrixInverse(nullptr, SystemParams::GetInstance().GetRenderer()->getProjectionMatrix());
 
 	// Send the information from the camera buffer to the shader
 	CameraBufferType* camPtr;
@@ -36,7 +32,6 @@ void CloudFragShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderR
 	camPtr->invProjectionMatrix = invProjection;
 	camPtr->cameraPos = cam->getPosition();
 	dc->Unmap(cameraBuffer, 0);
-	dc->PSSetConstantBuffers(0, 1, &cameraBuffer);
 
 	// Send the information from the container info buffer to the shader
 	ContainerInfoBufferType* containerPtr;
@@ -45,9 +40,7 @@ void CloudFragShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderR
 	containerPtr->boundsMin = XMFLOAT4(container->GetBoundsMin().x, container->GetBoundsMin().y, container->GetBoundsMin().z, 0);
 	containerPtr->boundsMax = XMFLOAT4(container->GetBoundsMax().x, container->GetBoundsMax().y, container->GetBoundsMax().z, 0);
 	dc->Unmap(containerInfoBuffer, 0);
-	dc->PSSetConstantBuffers(1, 1, &containerInfoBuffer);
 
-	dc->PSSetSamplers(0, 1, &sampleState);
 
 	// Transpose the matrices to prepare them for the shader.
 	XMMATRIX tworld, tview, tproj;
@@ -63,7 +56,16 @@ void CloudFragShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderR
 	dataPtr->view = tview;
 	dataPtr->projection = tproj;
 	dc->Unmap(matrixBuffer, 0);
+
+	// Pass the source texture and the texture to be modified to the shader
+	dc->PSSetShaderResources(0, 1, &sourceTexture);
+	dc->PSSetShaderResources(1, 1, &depthMap);
+	dc->PSSetShaderResources(2, 1, &noiseTex);
+	dc->PSSetSamplers(0, 1, &sampleState);
+	dc->PSSetConstantBuffers(0, 1, &cameraBuffer);
+	dc->PSSetConstantBuffers(1, 1, &containerInfoBuffer);
 	dc->VSSetConstantBuffers(0, 1, &matrixBuffer);
+	dc->VSSetConstantBuffers(1, 1, &cameraBuffer);
 }
 
 void CloudFragShader::initShader(const wchar_t* vsFilename, const wchar_t* psFilename)

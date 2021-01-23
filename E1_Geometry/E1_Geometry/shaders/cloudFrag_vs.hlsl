@@ -8,6 +8,14 @@ cbuffer MatrixBuffer : register(b0)
 	matrix projectionMatrix;
 };
 
+cbuffer CameraBuffer : register(b1)
+{
+	matrix invViewMatrix;
+	matrix invProjectionMatrix;
+	float3 cameraPos;
+	float padding;
+};
+
 struct InputType
 {
 	float4 position : POSITION;
@@ -20,6 +28,7 @@ struct OutputType
 	float4 position : SV_POSITION;
 	float2 tex : TEXCOORD0;
     float3 normal : NORMAL;
+	float3 viewVector : TEXCOORD1;
 };
 
 OutputType main(InputType input)
@@ -35,6 +44,11 @@ OutputType main(InputType input)
 	output.tex = input.tex;
 
     output.normal = input.normal;
+
+	// Calculate the view vector
+	//float3 viewVector = mul(invProjectionMatrix, float4(float2(input.tex.x * 2 - 1, (1-input.tex.y) * 2 - 1), 0, 1));
+	float3 viewVector = mul(invProjectionMatrix, float4(float2(input.tex.x , 1-input.tex.y) * 2 - 1, 0, 1));
+	output.viewVector = mul(invViewMatrix, float4(viewVector, 0));
 
 	return output;
 }

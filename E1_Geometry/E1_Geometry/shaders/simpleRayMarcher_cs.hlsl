@@ -167,7 +167,8 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     // Get the UVs of the screen
     float2 resolution = float2(0,0);
     Result.GetDimensions(resolution.x, resolution.y);
-    float2 uv = (id.xy / float2(resolution.x, resolution.y) * 2 - 1) * float2(1, -1);
+    //float2 uv = (id.xy / float2(resolution.x, resolution.y) * 2 - 1) * float2(1, -1);
+    float2 uv = (float2(id.x, resolution.y - id.y) / resolution * 2 - 1);
 
     // Set the colour to the source render texture initially
     float4 col = Source[id.xy];
