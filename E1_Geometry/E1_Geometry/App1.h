@@ -59,11 +59,28 @@ private:
 	int screenWidth;
 	int screenHeight;
 
+	// Cloud Settings
+	float noiseTexOffsetArray[3];
+	float noiseTexScale;
+	float densityThreshold;
+	float densityMultiplier;
+	int densitySteps;
+
+	// Absorption settings
+	float lightAbsTowardsSun;
+	float lightAbsThroughCloud;
+	float darknessThreshold;
+	int lightSteps;
+
+	// Noise data
 	bool textureGenerated;
 	bool showWorleyNoiseTexture;
 	float noiseGenTexRes;
 	float tileVal;
 	float sliceVal;
+
+	// Light Settings
+	float lightColour[3];
 };
 
 #endif

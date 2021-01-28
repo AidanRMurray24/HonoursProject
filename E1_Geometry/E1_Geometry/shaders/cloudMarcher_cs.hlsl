@@ -1,15 +1,9 @@
 
 SamplerState sampler0 : register(s0);
 RWTexture2D<float4> Result : register(u0);
-Texture2D Source : register(t0);
-Texture2D depthMap : register(t1);
-Texture3D noiseTex : register(t2);
-
-float3 cloudOffset = float3(0,0,0);
-float cloudScale = 1.f;
-float densityThreshold = 0.5f;
-float densityMultiplier = 5.f;
-int numSteps = 100;
+Texture2D<float4> Source : register(t0);
+Texture2D<float4> depthMap : register(t1);
+Texture3D<float4> noiseTex : register(t2);
 
 cbuffer CameraBuffer : register(b0)
 {
@@ -22,6 +16,20 @@ cbuffer ContainerInfoBuffer : register(b1)
 {
     float4 containerBoundsMin;
     float4 containerBoundsMax;
+}
+
+cbuffer CloudSettingsBuffer : register(b2)
+{
+    float4 noiseTexTransform; // Offset = (x,y,z), Scale = w
+    float4 densitySettings; // Density Threshold = x, Density Multiplier = y, Density Steps = z
+}
+
+cbuffer LightBuffer : register(b3)
+{
+    float4 lightDir;
+    float4 lightPos;
+    float4 lightDiffuse;
+    float4 lightAbsorptionData; // Absorption to sun = x, Absorption through cloud = y, Darkness Threshold = z, Marching steps = w
 }
 
 struct Ray
@@ -60,54 +68,87 @@ float LinearEyeDepth(float z)
     return 1.0 / (_ZBufferParams.z * z + _ZBufferParams.w);
 }
 
-Ray CreateRay(float3 origin, float3 direction) {
+Ray CreateRay(float3 origin, float3 direction) 
+{
     Ray ray;
     ray.origin = origin;
     ray.direction = direction;
     return ray;
 }
 
-Ray CreateCameraRay(float2 uv) {
+Ray CreateCameraRay(float2 uv) 
+{
     float3 origin = mul(invViewMatrix, float4(0, 0, 0, 1)).xyz;
     float3 direction = GetViewVector(uv);
     direction = normalize(direction);
     return CreateRay(origin, direction);
 }
 
+// Slabs implementation
 // Returns (dstToBox, dstInsideBox). If ray misses box, dstInsideBox will be zero
-float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 rayDir) {
-    // Adapted from: http://jcgt.org/published/0007/03/04/
-
+float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 rayDir) 
+{
     // Inverse ray direction to stop division by zero
     float3 invRaydir = 1 / rayDir;
 
+    // Get the points at which the ray insects each axis
     float3 t0 = (boundsMin - rayOrigin) * invRaydir;
     float3 t1 = (boundsMax - rayOrigin) * invRaydir;
+
+    // Get the min and max of the intersecting points to get the near and far intersection points if there are intersections
     float3 tmin = min(t0, t1);
     float3 tmax = max(t0, t1);
-
     float dstA = max(max(tmin.x, tmin.y), tmin.z);
     float dstB = min(tmax.x, min(tmax.y, tmax.z));
 
-    // CASE 1: ray intersects box from outside (0 <= dstA <= dstB)
-    // dstA is dst to nearest intersection, dstB dst to far intersection
-
-    // CASE 2: ray intersects box from inside (dstA < 0 < dstB)
-    // dstA is the dst to intersection behind the ray, dstB is dst to forward intersection
-
-    // CASE 3: ray misses box (dstA > dstB)
-
+    // Get the max distance of 0 and the distance to the box as dstA could be negative if the ray origin is within the box
     float dstToBox = max(0, dstA);
+
+    // Calculate the distance inside the box by taking away the distance to the box and making sure it's not negative
     float dstInsideBox = max(0, dstB - dstToBox);
+
+    // Return the 2 distances
     return float2(dstToBox, dstInsideBox);
 }
 
-float SampleDensity(float3 position)
+float SampleDensity(float3 pos)
 {
-    float3 uvw = position * cloudScale * 0.001f + cloudOffset * 0.01f;
-    float4 shape = noiseTex.SampleLevel(sampler0, uvw, 0);
-    float density = max(0, shape.r - densityThreshold) * densityMultiplier;
+    float densityThreshold = densitySettings.x;
+    float densityMultiplier = densitySettings.y;
+
+    // Calculate the uvw point of the texture to sample using the current position in space, applying the scale and adding on the offset
+    float3 uvw = pos / noiseTexTransform.w + noiseTexTransform.xyz;
+
+    // Sample the noise texture at the calculated point
+    float4 noiseValue = noiseTex.SampleLevel(sampler0, uvw, 0);
+
+    // Calculate the density 
+    float density = max(0, noiseValue.r - densityThreshold) * densityMultiplier;
     return density;
+}
+
+float LightMarch(float3 pos)
+{
+    // Calculate the distance from the current point to edge of the container in the direction of the light
+    float3 dirToLight = -lightDir.xyz;
+    float dstInsideBox = RayBoxDst(containerBoundsMin.xyz, containerBoundsMax.xyz, pos, dirToLight).y;
+
+    // March to the light
+    int lightSteps = lightAbsorptionData.w;
+    float stepSize = dstInsideBox / lightSteps;
+    float totalDensity = 0;
+    for (int i = 0; i < lightSteps; i++)
+    {
+        // Sample the density at the current step
+        pos += dirToLight * stepSize;
+        totalDensity += max(0, SampleDensity(pos) * stepSize);
+    }
+
+    // Use beers law to calculate the transmittance of the light as it passes through the container
+    float lightAbsTowardSun = lightAbsorptionData.x;
+    float darknessThreshold = lightAbsorptionData.z;
+    float transmittance = exp(-totalDensity * lightAbsTowardSun);
+    return darknessThreshold + transmittance * (1 - darknessThreshold);
 }
 
 [numthreads(8, 8, 1)]
@@ -138,16 +179,45 @@ void main( int3 id : SV_DispatchThreadID )
     float dstToBox = rayBoxInfo.x;
     float dstInsideBox = rayBoxInfo.y;
 
-    // Only shade black if inside the box
-    bool rayHitBox = dstInsideBox > 0 && dstToBox < linearDepth;
-    if (rayHitBox)
+    // Ray marching
+    int numSteps = densitySettings.z;
+    float dstTravelled = 0.0f;
+    float transmittance = 1;
+    float3 lightEnergy = 0;
+    float lightAbsThroughCloud = lightAbsorptionData.y;
+    float stepSize = dstInsideBox / numSteps;   // Only march within the container
+    float3 entryPoint = ro + rd * dstToBox;     // Point of intersection with the cloud container
+    for (int i = 0; i < numSteps; i++)
     {
-        col = 0;
+        // March ray inside the box
+        float3 rayPos = entryPoint + rd * dstTravelled;
+        float density = SampleDensity(rayPos);
+
+        // Only update the values if the density sampled is greater than zero
+        if (density > 0)
+        {
+            float lightTransmittance = LightMarch(rayPos);
+            lightEnergy += density * stepSize * transmittance * lightTransmittance;
+            transmittance *= exp(-density * stepSize * lightAbsThroughCloud);
+
+            // If the transmittance is very low, smapling won't effect much, so break
+            if (transmittance < 0.01)
+                break;
+        }
+
+        dstTravelled += stepSize;
     }
 
+    //// Only shade black if inside the box
+    //bool rayHitBox = dstInsideBox > 0 && dstToBox < linearDepth;
+    //if (rayHitBox)
+    //{
+    //    col = 0;
+    //    //col = noiseTex.SampleLevel(sampler0, pNear / 10, 0);
+    //}
+
+    // Calculate the final colour of the clouds
+    float4 cloudCol = lightDiffuse * float4(lightEnergy, 0);
+    col = col * transmittance + cloudCol;
     Result[id.xy] = col;
-    //Result[id.xy] = float4(viewVector, 0);
-    //Result[id.xy] = float4(ro, 0);
-    //Result[id.xy] = float4(uv, 0, 0);
-    //Result[id.xy] = float4(depth, depth, depth, 0);
 }

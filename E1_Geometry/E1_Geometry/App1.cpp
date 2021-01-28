@@ -29,16 +29,32 @@ App1::App1()
 	elapsedTime = 0;
 	timetaken = 9;
 
-	// Floats
+	// Noise data
 	noiseGenTexRes = 128;
-
-	// Bools
 	textureGenerated = false;
 	showWorleyNoiseTexture = false;
-
-	// Sliders
 	tileVal = 1.0f;
 	sliceVal = 0;
+
+	// Cloud Settings
+	densityThreshold = 0.6f;
+	densityMultiplier = 1.0f;
+	densitySteps = 100;
+	noiseTexOffsetArray[0] = 0;
+	noiseTexOffsetArray[1] = 0;
+	noiseTexOffsetArray[2] = 0;
+	noiseTexScale = 40.0f;
+
+	// Absorption settings
+	lightAbsTowardsSun = 0.75f;
+	lightAbsThroughCloud = 1.21f;
+	darknessThreshold = 0.15f;
+	lightSteps = 8;
+
+	// Light settings
+	lightColour[0] = 1.0f;
+	lightColour[1] = 0.9f;
+	lightColour[2] = 0.8f;
 }
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
@@ -55,7 +71,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	// Initialise Lights
 	light = new Light;
 	light->setPosition(0, 0, 0);
-	light->setDiffuseColour(1.0f, 1.0f, 1.0f, 1.0f);
+	light->setDiffuseColour(1.0f, 0.9f, 0.8f, 1.0f);
 	light->setDirection(0.7f, -0.7f, 0.0f);
 
 	LoadAssets(hwnd);
@@ -284,10 +300,10 @@ void App1::FinalPass()
 	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->cloudMarcherShader->getSRV());
 	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
-	// Render frag clouds
-	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
-	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, cloudFragRT->getShaderResourceView());
-	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
+	//// Render frag clouds
+	//assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
+	//assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, cloudFragRT->getShaderResourceView());
+	//assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with noise texture
 	if (showWorleyNoiseTexture)
@@ -315,11 +331,52 @@ void App1::gui()
 
 	// Build UI
 	ImGui::Text("FPS: %.2f", timer->getFPS());
-	ImGui::Text("Noise Compute-time(ms): %.5f", timetaken * 1000);
 	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
-	ImGui::Checkbox("Show Worley Noise Texture", &showWorleyNoiseTexture);
-	ImGui::SliderFloat("Tile Value", &tileVal, 0, 10);
-	ImGui::SliderFloat("Slice", &sliceVal, 0, 1);
+
+	// Noise settings
+	if (ImGui::CollapsingHeader("Noise Settings"))
+	{
+		ImGui::Text("Noise Compute-time(ms): %.5f", timetaken * 1000);
+		ImGui::Checkbox("ShowWorleyNoiseTexture", &showWorleyNoiseTexture);
+		ImGui::SliderFloat("TileValue", &tileVal, 0, 10);
+		ImGui::SliderFloat("Slice", &sliceVal, 0, 1);
+	}
+
+	// Cloud settings
+	CloudMarcherShader* cloudShader = assets->cloudMarcherShader;
+	if (ImGui::CollapsingHeader("Cloud Settings"))
+	{
+		ImGui::SliderFloat3("NoiseOffset", noiseTexOffsetArray, 0, 100);
+		ImGui::SliderFloat("NoiseTexture Scale", &noiseTexScale, 1, 200);
+		ImGui::SliderFloat("DensityThreshold", &densityThreshold, 0, 1);
+		ImGui::SliderFloat("DensityMultiplier", &densityMultiplier, 1, 10);
+		ImGui::SliderInt("DensitySteps", &densitySteps, 0, 1000);
+	}
+	cloudShader->SetNoiseOffset(noiseTexOffsetArray[0], noiseTexOffsetArray[1], noiseTexOffsetArray[2]);
+	cloudShader->SetNoiseScale(noiseTexScale);
+	cloudShader->SetDensityThreshold(densityThreshold);
+	cloudShader->SetDensityMultiplier(densityMultiplier);
+	cloudShader->SetDensitySteps(densitySteps);
+
+	// Absorbtion Settings
+	if (ImGui::CollapsingHeader("Absoption Settings"))
+	{
+		ImGui::SliderFloat("AbsTowardsSun", &lightAbsTowardsSun, 0, 5);
+		ImGui::SliderFloat("AbsThroughCloud", &lightAbsThroughCloud, 0, 5);
+		ImGui::SliderFloat("DarknessThreshold", &darknessThreshold, 0, 1);
+		ImGui::SliderInt("LightSteps", &lightSteps, 0, 100);
+	}
+	cloudShader->SetLightAbsTowardsSun(lightAbsTowardsSun);
+	cloudShader->SetLightAbsThroughCloud(lightAbsThroughCloud);
+	cloudShader->SetDarknessThreshold(darknessThreshold);
+	cloudShader->SetLightMarchSteps(lightSteps);
+
+	// Light Settings
+	if (ImGui::CollapsingHeader("Light Settings"))
+	{
+		ImGui::ColorPicker3("Colour", lightColour);
+		light->setDiffuseColour(lightColour[0], lightColour[1], lightColour[2], 1.0f);
+	}
 
 	// Render UI
 	ImGui::Render();
@@ -338,7 +395,7 @@ void App1::LoadAssets(HWND hwnd)
 	assets.tex2DShader = new TextureShader(device, hwnd, TextureType::TEXTURE2D);
 	assets.tex3DShader = new TextureShader(device, hwnd, TextureType::TEXTURE3D);
 	assets.noiseGenShader = new NoiseGeneratorShader(device, hwnd, noiseGenTexRes, noiseGenTexRes, noiseGenTexRes);
-	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, screenWidth, screenHeight, camera);
+	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, screenWidth, screenHeight, camera, light);
 	assets.depthShader = new DepthShader(device, hwnd);
 	assets.cloudFragShader = new CloudFragShader(device, hwnd, screenWidth, screenHeight, camera);
 
