@@ -111,6 +111,10 @@ float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 ra
     return float2(dstToBox, dstInsideBox);
 }
 
+float remap(float v, float minOld, float maxOld, float minNew, float maxNew) {
+    return minNew + (v - minOld) * (maxNew - minNew) / (maxOld - minOld);
+}
+
 float SampleDensity(float3 pos)
 {
     float densityThreshold = densitySettings.x;

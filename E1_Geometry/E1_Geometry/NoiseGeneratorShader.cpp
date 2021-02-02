@@ -4,12 +4,16 @@
 
 NoiseGeneratorShader::NoiseGeneratorShader(ID3D11Device* _device, HWND hwnd, int w, int h, int d) : BaseShader(_device, hwnd)
 {
-	pointsSeed = 0;
+	pointsABuffer = nullptr;
+	pointsABufferSRV = nullptr;
+
 	device = _device;
 	texWidth = w;
 	texHeight = h;
 	texDepth = d;
-	GenerateWorleyNoisePoints();
+	worleySettings.pointsA = GenerateWorleyNoisePoints(worleySettings.seed, worleySettings.numCellsA);
+	worleySettings.pointsB = GenerateWorleyNoisePoints(worleySettings.seed, worleySettings.numCellsB);
+	worleySettings.pointsC = GenerateWorleyNoisePoints(worleySettings.seed, worleySettings.numCellsC);
 
 	initShader(L"noiseGen_cs.cso", NULL);
 }
@@ -20,24 +24,29 @@ NoiseGeneratorShader::~NoiseGeneratorShader()
 
 void NoiseGeneratorShader::setShaderParameters(ID3D11DeviceContext* dc, float tileVal)
 {
-	// Pass the source texture and the texture to be modified to the shader
-	dc->CSSetUnorderedAccessViews(0, 1, &m_uavAccess, 0);
 
 	// Create a mapped resource object to map the data from the buffers to and pass them into the shader
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
 
-	// Send the information from the point buffer to the shader
-	PointBufferType* pointPtr;
-	dc->Map(pointBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
-	pointPtr = (PointBufferType*)mappedResource.pData;
-	for (size_t i = 0; i < TOTAL_CELLS; i++)
-		pointPtr->points[i] = XMFLOAT4(points[i].x, points[i].y, points[i].z, 0);
-	pointPtr->cellInfo.x = NUM_CELLS;
-	pointPtr->cellInfo.y = TOTAL_CELLS;
-	pointPtr->cellInfo.z = 1.f / NUM_CELLS;
-	pointPtr->cellInfo.w = tileVal;
-	dc->Unmap(pointBuffer, 0);
-	dc->CSSetConstantBuffers(0, 1, &pointBuffer);
+	// Fill Worley settings
+	WorleyBufferType* worleyPtr;
+	dc->Map(worleyBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	worleyPtr = (WorleyBufferType*)mappedResource.pData;
+	worleyPtr->numCells = XMFLOAT4(worleySettings.numCellsA, worleySettings.numCellsB, worleySettings.numCellsC, 0);
+	worleyPtr->noisePersistence = 0.5f;
+	dc->Unmap(worleyBuffer, 0);
+
+
+	// Set UAVs
+	dc->CSSetUnorderedAccessViews(0, 1, &m_uavAccess, 0);
+
+	// Set SRVs
+	dc->CSSetShaderResources(0, 1, &pointsABufferSRV);
+	dc->CSSetShaderResources(1, 1, &pointsBBufferSRV);
+	dc->CSSetShaderResources(2, 1, &pointsCBufferSRV);
+
+	// Set Constant buffers
+	dc->CSSetConstantBuffers(0, 1, &worleyBuffer);
 }
 
 void NoiseGeneratorShader::createGPUViews()
@@ -96,38 +105,130 @@ void NoiseGeneratorShader::initShader(const wchar_t* cfile, const wchar_t* blank
 	loadComputeShader(cfile);
 	createGPUViews();
 
-	// Init point buffer
-	D3D11_BUFFER_DESC pointBufferDesc;
-	pointBufferDesc.Usage = D3D11_USAGE_DYNAMIC;
-	pointBufferDesc.ByteWidth = sizeof(PointBufferType);
-	pointBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	pointBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	pointBufferDesc.MiscFlags = 0;
-	pointBufferDesc.StructureByteStride = 0;
-	renderer->CreateBuffer(&pointBufferDesc, NULL, &pointBuffer);
+
+	// Fill in point data
+	XMFLOAT4* pointsA = new XMFLOAT4[worleySettings.pointsA.size()];	// REMEMBER TO DELETE THIS IN DECONSTRUCTOR
+	for (size_t i = 0; i < worleySettings.pointsA.size(); i++)
+		pointsA[i] = worleySettings.pointsA[i];
+
+	// Fill in point data
+	XMFLOAT4* pointsB = new XMFLOAT4[worleySettings.pointsB.size()];	// REMEMBER TO DELETE THIS IN DECONSTRUCTOR
+	for (size_t i = 0; i < worleySettings.pointsB.size(); i++)
+		pointsB[i] = worleySettings.pointsB[i];
+
+	// Fill in point data
+	XMFLOAT4* pointsC = new XMFLOAT4[worleySettings.pointsC.size()];	// REMEMBER TO DELETE THIS IN DECONSTRUCTOR
+	for (size_t i = 0; i < worleySettings.pointsC.size(); i++)
+		pointsC[i] = worleySettings.pointsC[i];
+
+	// Create structured buffers
+	CreateStructuredBuffer(renderer, sizeof(XMFLOAT4), worleySettings.pointsA.size(), &pointsA[0], &pointsABuffer);
+	CreateStructuredBuffer(renderer, sizeof(XMFLOAT4), worleySettings.pointsB.size(), &pointsB[0], &pointsBBuffer);
+	CreateStructuredBuffer(renderer, sizeof(XMFLOAT4), worleySettings.pointsC.size(), &pointsC[0], &pointsCBuffer);
+
+	// Create SRV to structured buffers
+	CreateBufferSRV(renderer, pointsABuffer, &pointsABufferSRV);
+	CreateBufferSRV(renderer, pointsBBuffer, &pointsBBufferSRV);
+	CreateBufferSRV(renderer, pointsCBuffer, &pointsCBufferSRV);
+
+	// Create constant buffers
+	CreateConstantBuffer(renderer, sizeof(WorleyBufferType), &worleyBuffer);
+
+	// Clean up dynamically created arrays
+	delete[] pointsA;
+	delete[] pointsB;
+	delete[] pointsC;
 }
 
-void NoiseGeneratorShader::GenerateWorleyNoisePoints()
-{	
-	// Set a random seed
-	srand(pointsSeed);
+std::vector<XMFLOAT4>& NoiseGeneratorShader::GenerateWorleyNoisePoints(int seed, int numCells)
+{
+	std::vector<XMFLOAT4>* newPoints = new std::vector<XMFLOAT4>();
+
+	// Set the seed
+	srand(seed);
 
 	// Get the cellsize by dividing the number of cells by one as textures go from 0 to 1
-	float cellSize = 1.f / NUM_CELLS;
+	float cellSize = 1.f / numCells;
 
 	// Loop through all the cells
-	for (size_t z = 0; z < NUM_CELLS; z++)
+	for (size_t z = 0; z < numCells; z++)
 	{
-		for (size_t y = 0; y < NUM_CELLS; y++)
+		for (size_t y = 0; y < numCells; y++)
 		{
-			for (size_t x = 0; x < NUM_CELLS; x++)
+			for (size_t x = 0; x < numCells; x++)
 			{
 				// Find a random point inside the current cell and push it to the vector
 				XMFLOAT3 randomFloats = XMFLOAT3((rand() / (double)RAND_MAX), (rand() / (double)RAND_MAX), (rand() / (double)RAND_MAX));
 				XMFLOAT3 randomOffset = XMFLOAT3(randomFloats.x * cellSize, randomFloats.y * cellSize, randomFloats.z * cellSize);
 				XMFLOAT3 cellCorner = XMFLOAT3(x * cellSize, y * cellSize, z * cellSize);
-				points.push_back(XMFLOAT3(cellCorner.x + randomOffset.x, cellCorner.y + randomOffset.y, cellCorner.z + randomOffset.z));
+				newPoints->push_back(XMFLOAT4(cellCorner.x + randomOffset.x, cellCorner.y + randomOffset.y, cellCorner.z + randomOffset.z, 0));
 			}
 		}
 	}
+
+	return *newPoints;
+}
+
+HRESULT NoiseGeneratorShader::CreateStructuredBuffer(ID3D11Device* pDevice, UINT uElementSize, UINT uCount, void* pInitData, ID3D11Buffer** ppBufOut)
+{
+	*ppBufOut = nullptr;
+
+	D3D11_BUFFER_DESC desc = {};
+	desc.BindFlags = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+	desc.ByteWidth = uElementSize * uCount;
+	desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+	desc.StructureByteStride = uElementSize;
+
+	if (pInitData)
+	{
+		D3D11_SUBRESOURCE_DATA InitData;
+		InitData.pSysMem = pInitData;
+		return pDevice->CreateBuffer(&desc, &InitData, ppBufOut);
+	}
+	else
+		return pDevice->CreateBuffer(&desc, nullptr, ppBufOut);
+}
+
+HRESULT NoiseGeneratorShader::CreateBufferSRV(ID3D11Device* pDevice, ID3D11Buffer* pBuffer, ID3D11ShaderResourceView** ppSRVOut)
+{
+	D3D11_BUFFER_DESC descBuf = {};
+	pBuffer->GetDesc(&descBuf);
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC desc = {};
+	desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
+	desc.BufferEx.FirstElement = 0;
+
+	if (descBuf.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS)
+	{
+		// This is a Raw Buffer
+
+		desc.Format = DXGI_FORMAT_R32_TYPELESS;
+		desc.BufferEx.Flags = D3D11_BUFFEREX_SRV_FLAG_RAW;
+		desc.BufferEx.NumElements = descBuf.ByteWidth / 4;
+	}
+	else if (descBuf.MiscFlags & D3D11_RESOURCE_MISC_BUFFER_STRUCTURED)
+	{
+		// This is a Structured Buffer
+
+		desc.Format = DXGI_FORMAT_UNKNOWN;
+		desc.BufferEx.NumElements = descBuf.ByteWidth / descBuf.StructureByteStride;
+	}
+	else
+	{
+		return E_INVALIDARG;
+	}
+
+	return pDevice->CreateShaderResourceView(pBuffer, &desc, ppSRVOut);
+}
+
+void NoiseGeneratorShader::CreateConstantBuffer(ID3D11Device* renderer, UINT uElementSize, ID3D11Buffer** ppBufOut)
+{
+	D3D11_BUFFER_DESC desc;
+	desc.Usage = D3D11_USAGE_DYNAMIC;
+	desc.ByteWidth = uElementSize;
+	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	desc.MiscFlags = 0;
+	desc.StructureByteStride = 0;
+	renderer->CreateBuffer(&desc, NULL, ppBufOut);
 }

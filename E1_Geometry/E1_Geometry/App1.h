@@ -58,6 +58,7 @@ private:
 	// Screen info
 	int screenWidth;
 	int screenHeight;
+	bool showTerrain;
 
 	// Cloud Settings
 	float noiseTexOffsetArray[3];

@@ -55,6 +55,8 @@ App1::App1()
 	lightColour[0] = 1.0f;
 	lightColour[1] = 0.9f;
 	lightColour[2] = 0.8f;
+
+	showTerrain = false;
 }
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
@@ -176,7 +178,7 @@ bool App1::frame()
 
 bool App1::render()
 {
-	//if (!textureGenerated)
+	if (!textureGenerated)
 	{
 		textureGenerated = true;
 		NoiseGenPass();
@@ -210,7 +212,8 @@ void App1::GeometryPass()
 	sceneRT->clearRenderTarget(renderer->getDeviceContext(), 0.39f, 0.58f, 0.92f, 1.0f);
 	
 	// Render scene objects
-	terrainPlane->Render(light);
+	if (showTerrain)
+		terrainPlane->Render(light);
 	//cloudContainer->Render();
 
 	// Set back buffer as render target and reset view port.
@@ -224,7 +227,8 @@ void App1::DepthPass()
 	sceneDepthRT->setRenderTarget(renderer->getDeviceContext());
 	sceneDepthRT->clearRenderTarget(renderer->getDeviceContext(), 1, 0, 0, 1.0f);
 
-	terrainPlane->RenderDepthFromCamera();
+	if (showTerrain)
+		terrainPlane->RenderDepthFromCamera();
 
 	// Set back buffer as render target and reset view port.
 	renderer->setBackBufferRenderTarget();
@@ -332,6 +336,7 @@ void App1::gui()
 	// Build UI
 	ImGui::Text("FPS: %.2f", timer->getFPS());
 	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
+	ImGui::Checkbox("Show Terrain", &showTerrain);
 
 	// Noise settings
 	if (ImGui::CollapsingHeader("Noise Settings"))
