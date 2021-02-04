@@ -6,14 +6,7 @@ using namespace DirectX;
 
 class NoiseGeneratorShader : public BaseShader
 {
-private:
-	struct WorleyBufferType
-	{
-		XMFLOAT4 numCells;
-		XMFLOAT3 padding;
-		float noisePersistence = .5f;
-	};
-
+public:
 	struct WorleyNoiseSettings
 	{
 		int seed = 0;
@@ -26,6 +19,14 @@ private:
 		float persistence = .5f;
 	};
 
+private:
+	struct WorleyBufferType
+	{
+		XMFLOAT4 numCells;
+		XMFLOAT3 padding;
+		float noisePersistence = .5f;
+	};
+
 public:
 	NoiseGeneratorShader(ID3D11Device* device, HWND hwnd, int w, int h, int d);
 	~NoiseGeneratorShader();
@@ -33,7 +34,12 @@ public:
 	void setShaderParameters(ID3D11DeviceContext* dc, float tileVal);
 	void createGPUViews();
 	void unbind(ID3D11DeviceContext* dc);
+
+	// Getters
 	inline ID3D11ShaderResourceView* getSRV() { return m_srvTexOutput; }
+
+	// Setters
+	void SetNoiseSettings(WorleyNoiseSettings val);
 
 private:
 	void initShader(const wchar_t* cfile, const wchar_t* blank);

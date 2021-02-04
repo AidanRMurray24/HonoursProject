@@ -30,20 +30,26 @@ App1::App1()
 	timetaken = 9;
 
 	// Noise data
-	noiseGenTexRes = 128;
+	shapeNoiseGenTexRes = 128;
+	detailNoiseGenTexRes = 128;
 	textureGenerated = false;
-	showWorleyNoiseTexture = false;
+	showShapeNoiseTexture = false;
+	showDetailNoiseTexture = false;
 	tileVal = 1.0f;
 	sliceVal = 0;
 
 	// Cloud Settings
 	densityThreshold = 0.6f;
 	densityMultiplier = 1.0f;
-	densitySteps = 100;
-	noiseTexOffsetArray[0] = 0;
-	noiseTexOffsetArray[1] = 0;
-	noiseTexOffsetArray[2] = 0;
-	noiseTexScale = 40.0f;
+	densitySteps = 40;
+	shapeNoiseTexOffsetArray[0] = 0;
+	shapeNoiseTexOffsetArray[1] = 0;
+	shapeNoiseTexOffsetArray[2] = 0;
+	shapeNoiseTexScale = 40.0f;
+	detailNoiseTexOffsetArray[0] = 0;
+	detailNoiseTexOffsetArray[1] = 0;
+	detailNoiseTexOffsetArray[2] = 0;
+	detailNoiseTexScale = 40.0f;
 
 	// Absorption settings
 	lightAbsTowardsSun = 0.75f;
@@ -78,6 +84,20 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 
 	LoadAssets(hwnd);
 
+	// Set noise settings
+	shapeNoiseSettings.seed = 0;
+	shapeNoiseSettings.numCellsA = 5;
+	shapeNoiseSettings.numCellsB = 10;
+	shapeNoiseSettings.numCellsC = 15;
+	shapeNoiseSettings.persistence = 0.5f;
+	assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings);
+	detailNoiseSettings.seed = 0;
+	detailNoiseSettings.numCellsA = 7;
+	detailNoiseSettings.numCellsB = 17;
+	detailNoiseSettings.numCellsC = 24;
+	detailNoiseSettings.persistence = 0.76f;
+	assets->detailNoiseGenShader->SetNoiseSettings(detailNoiseSettings);
+
 	// Initialise timers
 	noiseTimer = new GPUTimer(renderer->getDevice(), renderer->getDeviceContext());
 
@@ -100,47 +120,18 @@ App1::~App1()
 	BaseApplication::~BaseApplication();
 
 	// Lights
-	{
-		if (light)
-		{
-			delete light;
-			light = 0;
-		}
-	}
+	CLEAN_POINTER(light);
 
 	// Render Textures
-	{
-		if (sceneRT)
-		{
-			delete sceneRT;
-			sceneRT = 0;
-		}
-
-		if (sceneDepthRT)
-		{
-			delete sceneDepthRT;
-			sceneDepthRT = 0;
-		}
-	}
+	CLEAN_POINTER(sceneRT);
+	CLEAN_POINTER(sceneDepthRT);
 
 	// Timers
-	{
-		if (noiseTimer)
-		{
-			delete noiseTimer;
-			noiseTimer = 0;
-		}
-	}
+	CLEAN_POINTER(noiseTimer);
 
 	// Scene Objects
 	for (SceneObject* s : sceneObjects)
-	{
-		if (s)
-		{
-			delete s;
-			s = 0;
-		}
-	}
+		CLEAN_POINTER(s);
 	sceneObjects.clear();
 
 	// Call clean up on the system params to detroy the loaded assets
@@ -178,31 +169,37 @@ bool App1::frame()
 
 bool App1::render()
 {
+	// Only generate the textures at the start
 	if (!textureGenerated)
 	{
 		textureGenerated = true;
-		NoiseGenPass();
+		GenerateNoiseTextures();
 	}
 	GeometryPass();
 	DepthPass();
-	RayMarchPass();
+	//RayMarchPass();
 	CloudMarchPass();
-	CloudFragPass();
+	//CloudFragPass();
 	FinalPass();
 
 	return true;
 }
 
-void App1::NoiseGenPass()
+void App1::GenerateNoiseTextures()
 {
-	NoiseGeneratorShader* shader = SystemParams::GetInstance().GetAssets().noiseGenShader;
-
-	// Generate noise texture
+	// Generate shape noise texture
+	NoiseGeneratorShader* shader = SystemParams::GetInstance().GetAssets().shapeNoiseGenShader;
 	shader->setShaderParameters(renderer->getDeviceContext(), tileVal);
 	noiseTimer->StartTimer();
-	shader->compute(renderer->getDeviceContext(), ceil(noiseGenTexRes / 8.0f), ceil(noiseGenTexRes / 8.0f), ceil(noiseGenTexRes / 8.0f));
+	shader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
 	shader->unbind(renderer->getDeviceContext());
 	noiseTimer->StopTimer();
+
+	// Generate detail noise texture
+	shader = SystemParams::GetInstance().GetAssets().detailNoiseGenShader;
+	shader->setShaderParameters(renderer->getDeviceContext(), tileVal);
+	shader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
+	shader->unbind(renderer->getDeviceContext());
 }
 
 void App1::GeometryPass()
@@ -250,7 +247,7 @@ void App1::CloudMarchPass()
 	CloudMarcherShader* shader = SystemParams::GetInstance().GetAssets().cloudMarcherShader;
 
 	// Generate clouds
-	shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->noiseGenShader->getSRV(), renderer->getProjectionMatrix(), cloudContainer);
+	shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->shapeNoiseGenShader->getSRV(), assets->detailNoiseGenShader->getSRV(), renderer->getProjectionMatrix(), cloudContainer);
 	shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
 	shader->unbind(renderer->getDeviceContext());
 }
@@ -265,7 +262,7 @@ void App1::CloudFragPass()
 
 	renderer->setZBuffer(false);
 	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
-	assets->cloudFragShader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->noiseGenShader->getSRV(), worldMatrix, cloudFragRT->getOrthoMatrix(), cloudContainer);
+	assets->cloudFragShader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->shapeNoiseGenShader->getSRV(), worldMatrix, cloudFragRT->getOrthoMatrix(), cloudContainer);
 	assets->cloudFragShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 	renderer->setZBuffer(true);
 
@@ -289,15 +286,15 @@ void App1::FinalPass()
 
 	renderer->setZBuffer(false);
 	
-	// Render ortho mesh with ray march
-	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
-	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->rayMarcherShader->getSRV());
-	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
+	//// Render ortho mesh with ray march
+	//assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
+	//assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->rayMarcherShader->getSRV());
+	//assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
-	// Render ortho mesh with depth map
-	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
-	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, sceneDepthRT->getShaderResourceView());
-	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
+	//// Render ortho mesh with depth map
+	//assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
+	//assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, sceneDepthRT->getShaderResourceView());
+	//assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
 	// Render clouds
 	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
@@ -310,10 +307,16 @@ void App1::FinalPass()
 	//assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with noise texture
-	if (showWorleyNoiseTexture)
+	if (showShapeNoiseTexture)
 	{
 		assets->noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
-		assets->tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->noiseGenShader->getSRV(), sliceVal);
+		assets->tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->shapeNoiseGenShader->getSRV(), sliceVal);
+		assets->tex3DShader->render(renderer->getDeviceContext(), assets->noiseGenOrthoMesh->getIndexCount());
+	}
+	if (showDetailNoiseTexture)
+	{
+		assets->noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
+		assets->tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->detailNoiseGenShader->getSRV(), sliceVal);
 		assets->tex3DShader->render(renderer->getDeviceContext(), assets->noiseGenOrthoMesh->getIndexCount());
 	}
 
@@ -342,7 +345,8 @@ void App1::gui()
 	if (ImGui::CollapsingHeader("Noise Settings"))
 	{
 		ImGui::Text("Noise Compute-time(ms): %.5f", timetaken * 1000);
-		ImGui::Checkbox("ShowWorleyNoiseTexture", &showWorleyNoiseTexture);
+		ImGui::Checkbox("ShowShapeNoiseTexture", &showShapeNoiseTexture);
+		ImGui::Checkbox("ShowDetailNoiseTexture", &showDetailNoiseTexture);
 		ImGui::SliderFloat("TileValue", &tileVal, 0, 10);
 		ImGui::SliderFloat("Slice", &sliceVal, 0, 1);
 	}
@@ -351,14 +355,27 @@ void App1::gui()
 	CloudMarcherShader* cloudShader = assets->cloudMarcherShader;
 	if (ImGui::CollapsingHeader("Cloud Settings"))
 	{
-		ImGui::SliderFloat3("NoiseOffset", noiseTexOffsetArray, 0, 100);
-		ImGui::SliderFloat("NoiseTexture Scale", &noiseTexScale, 1, 200);
-		ImGui::SliderFloat("DensityThreshold", &densityThreshold, 0, 1);
-		ImGui::SliderFloat("DensityMultiplier", &densityMultiplier, 1, 10);
-		ImGui::SliderInt("DensitySteps", &densitySteps, 0, 1000);
+		if (ImGui::CollapsingHeader("Shape Noise"))
+		{
+			ImGui::SliderFloat3("ShapeNoiseOffset", shapeNoiseTexOffsetArray, 0, 100);
+			ImGui::SliderFloat("ShapeNoiseScale", &shapeNoiseTexScale, 1, 200);
+		}
+		if (ImGui::CollapsingHeader("Detail Noise"))
+		{
+			ImGui::SliderFloat3("DetailNoiseOffset", detailNoiseTexOffsetArray, 0, 100);
+			ImGui::SliderFloat("DetailNoiseScale", &detailNoiseTexScale, 1, 200);
+		}
+		if (ImGui::CollapsingHeader("Density Settings"))
+		{
+			ImGui::SliderFloat("DensityThreshold", &densityThreshold, 0, 1);
+			ImGui::SliderFloat("DensityMultiplier", &densityMultiplier, 1, 10);
+			ImGui::SliderInt("DensitySteps", &densitySteps, 0, 1000);
+		}
 	}
-	cloudShader->SetNoiseOffset(noiseTexOffsetArray[0], noiseTexOffsetArray[1], noiseTexOffsetArray[2]);
-	cloudShader->SetNoiseScale(noiseTexScale);
+	cloudShader->SetShapeNoiseOffset(shapeNoiseTexOffsetArray[0], shapeNoiseTexOffsetArray[1], shapeNoiseTexOffsetArray[2]);
+	cloudShader->SetShapeNoiseScale(shapeNoiseTexScale);
+	cloudShader->SetDetailNoiseOffset(detailNoiseTexOffsetArray[0], detailNoiseTexOffsetArray[1], detailNoiseTexOffsetArray[2]);
+	cloudShader->SetDetailNoiseScale(detailNoiseTexScale);
 	cloudShader->SetDensityThreshold(densityThreshold);
 	cloudShader->SetDensityMultiplier(densityMultiplier);
 	cloudShader->SetDensitySteps(densitySteps);
@@ -399,7 +416,8 @@ void App1::LoadAssets(HWND hwnd)
 	assets.rayMarcherShader = new SimpleRayMarcherShader(device, hwnd, screenWidth, screenHeight, camera, light);
 	assets.tex2DShader = new TextureShader(device, hwnd, TextureType::TEXTURE2D);
 	assets.tex3DShader = new TextureShader(device, hwnd, TextureType::TEXTURE3D);
-	assets.noiseGenShader = new NoiseGeneratorShader(device, hwnd, noiseGenTexRes, noiseGenTexRes, noiseGenTexRes);
+	assets.shapeNoiseGenShader = new NoiseGeneratorShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
+	assets.detailNoiseGenShader = new NoiseGeneratorShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, screenWidth, screenHeight, camera, light);
 	assets.depthShader = new DepthShader(device, hwnd);
 	assets.cloudFragShader = new CloudFragShader(device, hwnd, screenWidth, screenHeight, camera);
@@ -408,7 +426,7 @@ void App1::LoadAssets(HWND hwnd)
 	assets.cubeMesh = new CubeMesh(device, deviceContext);
 	assets.planeMesh = new PlaneMesh(device, deviceContext);
 	assets.screenOrthoMesh = new OrthoMesh(device, deviceContext, screenWidth, screenHeight);
-	assets.noiseGenOrthoMesh = new OrthoMesh(device, deviceContext, noiseGenTexRes, noiseGenTexRes);
+	assets.noiseGenOrthoMesh = new OrthoMesh(device, deviceContext, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 
 	// Initialise textures
 	textureMgr->loadTexture(L"brick", L"res/brick1.dds");

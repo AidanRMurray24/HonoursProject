@@ -6,6 +6,7 @@
 #include "../DXFramework/DXF.h"
 #include "GPUTimer.h"
 #include <vector>
+#include "NoiseGeneratorShader.h"
 
 // Scene objects
 #include "CloudContainer.h"
@@ -23,7 +24,7 @@ public:
 
 protected:
 	bool render();
-	void NoiseGenPass();
+	void GenerateNoiseTextures();
 	void GeometryPass();
 	void DepthPass();
 	void RayMarchPass();
@@ -61,8 +62,10 @@ private:
 	bool showTerrain;
 
 	// Cloud Settings
-	float noiseTexOffsetArray[3];
-	float noiseTexScale;
+	float shapeNoiseTexOffsetArray[3];
+	float shapeNoiseTexScale;
+	float detailNoiseTexOffsetArray[3];
+	float detailNoiseTexScale;
 	float densityThreshold;
 	float densityMultiplier;
 	int densitySteps;
@@ -75,10 +78,14 @@ private:
 
 	// Noise data
 	bool textureGenerated;
-	bool showWorleyNoiseTexture;
-	float noiseGenTexRes;
+	bool showShapeNoiseTexture;
+	bool showDetailNoiseTexture;
+	float shapeNoiseGenTexRes;
+	float detailNoiseGenTexRes;
 	float tileVal;
 	float sliceVal;
+	NoiseGeneratorShader::WorleyNoiseSettings shapeNoiseSettings;
+	NoiseGeneratorShader::WorleyNoiseSettings detailNoiseSettings;
 
 	// Light Settings
 	float lightColour[3];

@@ -99,6 +99,45 @@ void NoiseGeneratorShader::unbind(ID3D11DeviceContext* dc)
 	dc->CSSetShader(nullptr, nullptr, 0);
 }
 
+void NoiseGeneratorShader::SetNoiseSettings(WorleyNoiseSettings val)
+{
+	worleySettings = val;
+
+	worleySettings.pointsA = GenerateWorleyNoisePoints(worleySettings.seed, worleySettings.numCellsA);
+	worleySettings.pointsB = GenerateWorleyNoisePoints(worleySettings.seed, worleySettings.numCellsB);
+	worleySettings.pointsC = GenerateWorleyNoisePoints(worleySettings.seed, worleySettings.numCellsC);
+
+	// Fill in point data
+	XMFLOAT4* pointsA = new XMFLOAT4[worleySettings.pointsA.size()];	// REMEMBER TO DELETE THIS IN DECONSTRUCTOR
+	for (size_t i = 0; i < worleySettings.pointsA.size(); i++)
+		pointsA[i] = worleySettings.pointsA[i];
+
+	// Fill in point data
+	XMFLOAT4* pointsB = new XMFLOAT4[worleySettings.pointsB.size()];	// REMEMBER TO DELETE THIS IN DECONSTRUCTOR
+	for (size_t i = 0; i < worleySettings.pointsB.size(); i++)
+		pointsB[i] = worleySettings.pointsB[i];
+
+	// Fill in point data
+	XMFLOAT4* pointsC = new XMFLOAT4[worleySettings.pointsC.size()];	// REMEMBER TO DELETE THIS IN DECONSTRUCTOR
+	for (size_t i = 0; i < worleySettings.pointsC.size(); i++)
+		pointsC[i] = worleySettings.pointsC[i];
+
+	// Create structured buffers
+	CreateStructuredBuffer(renderer, sizeof(XMFLOAT4), worleySettings.pointsA.size(), &pointsA[0], &pointsABuffer);
+	CreateStructuredBuffer(renderer, sizeof(XMFLOAT4), worleySettings.pointsB.size(), &pointsB[0], &pointsBBuffer);
+	CreateStructuredBuffer(renderer, sizeof(XMFLOAT4), worleySettings.pointsC.size(), &pointsC[0], &pointsCBuffer);
+
+	// Create SRV to structured buffers
+	CreateBufferSRV(renderer, pointsABuffer, &pointsABufferSRV);
+	CreateBufferSRV(renderer, pointsBBuffer, &pointsBBufferSRV);
+	CreateBufferSRV(renderer, pointsCBuffer, &pointsCBufferSRV);
+
+	// Clean up dynamically created arrays
+	delete[] pointsA;
+	delete[] pointsB;
+	delete[] pointsC;
+}
+
 void NoiseGeneratorShader::initShader(const wchar_t* cfile, const wchar_t* blank)
 {
 	// Load the shader and create the views

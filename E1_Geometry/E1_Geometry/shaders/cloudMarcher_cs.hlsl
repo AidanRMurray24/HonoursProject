@@ -3,7 +3,8 @@ SamplerState sampler0 : register(s0);
 RWTexture2D<float4> Result : register(u0);
 Texture2D<float4> Source : register(t0);
 Texture2D<float4> depthMap : register(t1);
-Texture3D<float4> noiseTex : register(t2);
+Texture3D<float4> shapeNoiseTex : register(t2);
+Texture3D<float4> detailNoiseTex : register(t3);
 
 cbuffer CameraBuffer : register(b0)
 {
@@ -20,7 +21,8 @@ cbuffer ContainerInfoBuffer : register(b1)
 
 cbuffer CloudSettingsBuffer : register(b2)
 {
-    float4 noiseTexTransform; // Offset = (x,y,z), Scale = w
+    float4 shapeNoiseTexTransform; // Offset = (x,y,z), Scale = w
+    float4 detailNoiseTexTransform; // Offset = (x,y,z), Scale = w
     float4 densitySettings; // Density Threshold = x, Density Multiplier = y, Density Steps = z
 }
 
@@ -111,7 +113,8 @@ float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 ra
     return float2(dstToBox, dstInsideBox);
 }
 
-float remap(float v, float minOld, float maxOld, float minNew, float maxNew) {
+float remap(float v, float minOld, float maxOld, float minNew, float maxNew)
+{
     return minNew + (v - minOld) * (maxNew - minNew) / (maxOld - minOld);
 }
 
@@ -121,14 +124,46 @@ float SampleDensity(float3 pos)
     float densityMultiplier = densitySettings.y;
 
     // Calculate the uvw point of the texture to sample using the current position in space, applying the scale and adding on the offset
-    float3 uvw = pos / noiseTexTransform.w + noiseTexTransform.xyz;
+    float3 uvw = pos;
+    float3 shapeSamplePos = uvw / detailNoiseTexTransform.w + detailNoiseTexTransform.xyz;
 
-    // Sample the noise texture at the calculated point
-    float4 noiseValue = noiseTex.SampleLevel(sampler0, uvw, 0);
+    // Calculate falloff at along x/z edges of the cloud container
+    const float containerEdgeFadeDst = 50;
+    float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - containerBoundsMin.x, containerBoundsMax.x - pos.x));
+    float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - containerBoundsMin.z, containerBoundsMax.z - pos.z));
+    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
 
-    // Calculate the density 
-    float density = max(0, noiseValue.r - densityThreshold) * densityMultiplier;
-    return density;
+    // Calculate height gradient from weather map
+    float3 size = containerBoundsMax - containerBoundsMin;
+    float gMin = .2;
+    float gMax = .7;
+    float heightPercent = (pos.y - containerBoundsMin.y) / size.y;
+    float heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(remap(heightPercent, 1, gMax, 0, 1));
+    heightGradient *= edgeWeight;
+
+    // Sample the shape noise texture at the current point
+    float4 shapeNoiseWeights = float4(1, 0, 0, 0);
+    float4 shapeNoise = shapeNoiseTex.SampleLevel(sampler0, shapeSamplePos, 0);
+    float4 normalisedWeights = shapeNoiseWeights / dot(shapeNoiseWeights, 1);
+    float shapeFBM = dot(shapeNoise, normalisedWeights) * heightGradient;
+
+    // Calculate the density of the shape noise
+    float densityOffset = -4.27;
+    float shapeDensity = shapeFBM + densityOffset * .1f;
+
+    if (shapeDensity > 0)
+    {
+        // Sample detail noise
+        float3 detailSamplePos = uvw / shapeNoiseTexTransform.w + shapeNoiseTexTransform.xyz;
+        float detailNoise = detailNoiseTex.SampleLevel(sampler0, detailSamplePos, 0).x;
+
+        float oneMinusShape = 1 - shapeDensity;
+        float detailErodeWeight = oneMinusShape * oneMinusShape * oneMinusShape;
+        float cloudDensity = shapeDensity - (1 - detailNoise) * detailErodeWeight;
+
+        return cloudDensity * densityMultiplier;
+    }
+    return 0;
 }
 
 float LightMarch(float3 pos)
@@ -217,7 +252,7 @@ void main( int3 id : SV_DispatchThreadID )
     //if (rayHitBox)
     //{
     //    col = 0;
-    //    //col = noiseTex.SampleLevel(sampler0, pNear / 10, 0);
+    //    //col = shapeNoiseTex.SampleLevel(sampler0, pNear / 10, 0);
     //}
 
     // Calculate the final colour of the clouds

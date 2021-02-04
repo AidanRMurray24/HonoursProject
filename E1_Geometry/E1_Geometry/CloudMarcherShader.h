@@ -22,7 +22,8 @@ private:
 
 	struct CloudSettingsBufferType
 	{
-		XMFLOAT4 noiseTexTransform; // Offset = (x,y,z), Scale = w
+		XMFLOAT4 shapeNoiseTexTransform; // Offset = (x,y,z), Scale = w
+		XMFLOAT4 detailNoiseTexTransform; // Offset = (x,y,z), Scale = w
 		XMFLOAT4 densitySettings; // Density Threshold = x, Density Multiplier = y, Density Steps = z
 	};
 
@@ -38,7 +39,7 @@ public:
 	CloudMarcherShader(ID3D11Device* device, HWND hwnd, int _screenWidth, int _screenHeight, Camera* _cam, Light* _mainLight);
 	~CloudMarcherShader();
 
-	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* noiseTex, const XMMATRIX& projectionMatrix, CloudContainer* container);
+	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex, const XMMATRIX& projectionMatrix, CloudContainer* container);
 	void createGPUViews();
 	void unbind(ID3D11DeviceContext* dc);
 	inline ID3D11ShaderResourceView* getSRV() { return srvTexOutput; }
@@ -47,19 +48,32 @@ public:
 	inline void SetDensityThreshold(float val) { cloudSettings.densitySettings.x = val; }
 	inline void SetDensityMultiplier(float val) { cloudSettings.densitySettings.y = val; }
 	inline void SetDensitySteps(int val) { cloudSettings.densitySettings.z = val; }
-	inline void SetNoiseOffset(XMFLOAT3 val) 
+	inline void SetShapeNoiseOffset(XMFLOAT3 val) 
 	{
-		cloudSettings.noiseTexTransform.x = val.x;
-		cloudSettings.noiseTexTransform.y = val.y;
-		cloudSettings.noiseTexTransform.z = val.z;
+		cloudSettings.shapeNoiseTexTransform.x = val.x;
+		cloudSettings.shapeNoiseTexTransform.y = val.y;
+		cloudSettings.shapeNoiseTexTransform.z = val.z;
 	}
-	inline void SetNoiseOffset(float x, float y, float z) 
+	inline void SetShapeNoiseOffset(float x, float y, float z) 
 	{
-		cloudSettings.noiseTexTransform.x = x;
-		cloudSettings.noiseTexTransform.y = y;
-		cloudSettings.noiseTexTransform.z = z;
+		cloudSettings.shapeNoiseTexTransform.x = x;
+		cloudSettings.shapeNoiseTexTransform.y = y;
+		cloudSettings.shapeNoiseTexTransform.z = z;
 	}
-	inline void SetNoiseScale(float val) { cloudSettings.noiseTexTransform.w = val; }
+	inline void SetShapeNoiseScale(float val) { cloudSettings.shapeNoiseTexTransform.w = val; }
+	inline void SetDetailNoiseOffset(XMFLOAT3 val)
+	{
+		cloudSettings.detailNoiseTexTransform.x = val.x;
+		cloudSettings.detailNoiseTexTransform.y = val.y;
+		cloudSettings.detailNoiseTexTransform.z = val.z;
+	}
+	inline void SetDetailNoiseOffset(float x, float y, float z)
+	{
+		cloudSettings.detailNoiseTexTransform.x = x;
+		cloudSettings.detailNoiseTexTransform.y = y;
+		cloudSettings.detailNoiseTexTransform.z = z;
+	}
+	inline void SetDetailNoiseScale(float val) { cloudSettings.detailNoiseTexTransform.w = val; }
 	inline void SetLightAbsTowardsSun(float val) { absorptionData.x = val; }
 	inline void SetLightAbsThroughCloud(float val) { absorptionData.y = val; }
 	inline void SetDarknessThreshold(float val) { absorptionData.z = val; }

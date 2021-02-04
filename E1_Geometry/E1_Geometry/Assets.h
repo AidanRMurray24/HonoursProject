@@ -1,12 +1,17 @@
 #pragma once
 
+#ifndef CLEAN_POINTER
+#define CLEAN_POINTER(val) {if (val) {delete val; val = 0;}}
+#endif
+
 struct Assets
 {
 	// Shaders
 	class CloudMarcherShader* cloudMarcherShader = nullptr;
 	class ManipulationShader* manipulationShader = nullptr;
 	class SimpleRayMarcherShader* rayMarcherShader = nullptr;
-	class NoiseGeneratorShader* noiseGenShader = nullptr;
+	class NoiseGeneratorShader* shapeNoiseGenShader = nullptr;
+	class NoiseGeneratorShader* detailNoiseGenShader = nullptr;
 	class TextureShader* tex2DShader = nullptr;
 	class TextureShader* tex3DShader = nullptr;
 	class DepthShader* depthShader = nullptr;
@@ -26,18 +31,21 @@ struct Assets
 	void CleanUp()
 	{
 		// Shaders
-		if (cloudMarcherShader)
-		{
-			delete cloudMarcherShader;
-			cloudMarcherShader = 0;
-		}
+		CLEAN_POINTER(cloudMarcherShader);
+		CLEAN_POINTER(manipulationShader);
+		CLEAN_POINTER(rayMarcherShader);
+		CLEAN_POINTER(shapeNoiseGenShader);
+		CLEAN_POINTER(detailNoiseGenShader);
+		CLEAN_POINTER(tex2DShader);
+		CLEAN_POINTER(tex3DShader);
+		CLEAN_POINTER(depthShader);
+		CLEAN_POINTER(cloudFragShader);
 
 		// Meshes
-		if (cubeMesh)
-		{
-			delete cubeMesh;
-			cubeMesh = 0;
-		}
+		CLEAN_POINTER(cubeMesh);
+		CLEAN_POINTER(planeMesh);
+		CLEAN_POINTER(screenOrthoMesh);
+		CLEAN_POINTER(noiseGenOrthoMesh);
 
 		// Textures
 		brickTexture = nullptr;

@@ -9,7 +9,8 @@ CloudMarcherShader::CloudMarcherShader(ID3D11Device* device, HWND hwnd, int w, i
 	cam = _cam;
 	mainLight = _mainLight;
 	cloudSettings.densitySettings = XMFLOAT4(0.6f, 1, 100, 0);
-	cloudSettings.noiseTexTransform = XMFLOAT4(0, 0, 0, 1);
+	cloudSettings.shapeNoiseTexTransform = XMFLOAT4(0, 0, 0, 40);
+	cloudSettings.detailNoiseTexTransform = XMFLOAT4(0, 0, 0, 40);
 	absorptionData = XMFLOAT4(0.75f, 1.21f, 0.15f, 8.0f);
 
 	initShader(L"cloudMarcher_cs.cso", NULL);
@@ -19,7 +20,7 @@ CloudMarcherShader::~CloudMarcherShader()
 {
 }
 
-void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* noiseTex,  const XMMATRIX& projectionMatrix, CloudContainer* container)
+void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex,  const XMMATRIX& projectionMatrix, CloudContainer* container)
 {
 	// Pass in buffer data
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -50,7 +51,8 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	CloudSettingsBufferType* cloudSettingsPtr;
 	dc->Map(cloudSettingsBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	cloudSettingsPtr = (CloudSettingsBufferType*)mappedResource.pData;
-	cloudSettingsPtr->noiseTexTransform = cloudSettings.noiseTexTransform;
+	cloudSettingsPtr->shapeNoiseTexTransform = cloudSettings.shapeNoiseTexTransform;
+	cloudSettingsPtr->detailNoiseTexTransform = cloudSettings.detailNoiseTexTransform;
 	cloudSettingsPtr->densitySettings = cloudSettings.densitySettings;
 	dc->Unmap(cloudSettingsBuffer, 0);
 
@@ -73,7 +75,8 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	// Pass the source texture and the texture to be modified to the shader
 	dc->CSSetShaderResources(0, 1, &sourceTexture);
 	dc->CSSetShaderResources(1, 1, &depthMap);
-	dc->CSSetShaderResources(2, 1, &noiseTex);
+	dc->CSSetShaderResources(2, 1, &shapeNoiseTex);
+	dc->CSSetShaderResources(3, 1, &detailNoiseTex);
 	dc->CSSetUnorderedAccessViews(0, 1, &uavTexAccess, 0);
 
 	// Set the sampler inside the shader
