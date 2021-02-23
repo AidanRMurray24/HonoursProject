@@ -62,7 +62,7 @@ App1::App1()
 	lightColour[1] = 0.9f;
 	lightColour[2] = 0.8f;
 
-	showTerrain = false;
+	showTerrain = true;
 }
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)

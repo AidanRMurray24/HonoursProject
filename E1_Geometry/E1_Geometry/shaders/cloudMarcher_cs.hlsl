@@ -47,9 +47,9 @@ float3 GetViewVector(float2 uv)
     return viewVector;
 }
 
-float GetLinearDepth(float2 uv)
+float GetLinearDepth(float nonLinearDepth)
 {
-    float nonLinearDepth = depthMap.SampleLevel(sampler0, uv, 0);
+    //float nonLinearDepth = depthMap.SampleLevel(sampler0, uv, 0);
     float near = 0.1f;
     float far = 1000.f;
     float linearDepth = (2.0f * near) / (far + near - nonLinearDepth * (far - near));
@@ -67,7 +67,7 @@ float LinearEyeDepth(float z)
     _ZBufferParams.z = _ZBufferParams.x / far;
     _ZBufferParams.w = 1 / far;
 
-    return 1.0 / (_ZBufferParams.z * z + _ZBufferParams.w);
+    return 1.0f / (_ZBufferParams.z * z + _ZBufferParams.w);
 }
 
 Ray CreateRay(float3 origin, float3 direction) 
@@ -87,7 +87,6 @@ Ray CreateCameraRay(float2 uv)
 }
 
 // Slabs implementation
-// Returns (dstToBox, dstInsideBox). If ray misses box, dstInsideBox will be zero
 float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 rayDir) 
 {
     // Inverse ray direction to stop division by zero
@@ -113,90 +112,14 @@ float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 ra
     return float2(dstToBox, dstInsideBox);
 }
 
-float remap(float v, float minOld, float maxOld, float minNew, float maxNew)
-{
-    return minNew + (v - minOld) * (maxNew - minNew) / (maxOld - minOld);
-}
-
-float SampleDensity(float3 pos)
-{
-    float densityThreshold = densitySettings.x;
-    float densityMultiplier = densitySettings.y;
-
-    // Calculate the uvw point of the texture to sample using the current position in space, applying the scale and adding on the offset
-    float3 uvw = pos;
-    float3 shapeSamplePos = uvw / detailNoiseTexTransform.w + detailNoiseTexTransform.xyz;
-
-    // Calculate falloff at along x/z edges of the cloud container
-    const float containerEdgeFadeDst = 50;
-    float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - containerBoundsMin.x, containerBoundsMax.x - pos.x));
-    float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - containerBoundsMin.z, containerBoundsMax.z - pos.z));
-    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
-
-    // Calculate height gradient from weather map
-    float3 size = containerBoundsMax - containerBoundsMin;
-    float gMin = .2;
-    float gMax = .7;
-    float heightPercent = (pos.y - containerBoundsMin.y) / size.y;
-    float heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(remap(heightPercent, 1, gMax, 0, 1));
-    heightGradient *= edgeWeight;
-
-    // Sample the shape noise texture at the current point
-    float4 shapeNoiseWeights = float4(1, 0, 0, 0);
-    float4 shapeNoise = shapeNoiseTex.SampleLevel(sampler0, shapeSamplePos, 0);
-    float4 normalisedWeights = shapeNoiseWeights / dot(shapeNoiseWeights, 1);
-    float shapeFBM = dot(shapeNoise, normalisedWeights) * heightGradient;
-
-    // Calculate the density of the shape noise
-    float densityOffset = -4.27;
-    float shapeDensity = shapeFBM + densityOffset * .1f;
-
-    if (shapeDensity > 0)
-    {
-        // Sample detail noise
-        float3 detailSamplePos = uvw / shapeNoiseTexTransform.w + shapeNoiseTexTransform.xyz;
-        float detailNoise = detailNoiseTex.SampleLevel(sampler0, detailSamplePos, 0).x;
-
-        float oneMinusShape = 1 - shapeDensity;
-        float detailErodeWeight = oneMinusShape * oneMinusShape * oneMinusShape;
-        float cloudDensity = shapeDensity - (1 - detailNoise) * detailErodeWeight;
-
-        return cloudDensity * densityMultiplier;
-    }
-    return 0;
-}
-
-float LightMarch(float3 pos)
-{
-    // Calculate the distance from the current point to edge of the container in the direction of the light
-    float3 dirToLight = -lightDir.xyz;
-    float dstInsideBox = RayBoxDst(containerBoundsMin.xyz, containerBoundsMax.xyz, pos, dirToLight).y;
-
-    // March to the light
-    int lightSteps = lightAbsorptionData.w;
-    float stepSize = dstInsideBox / lightSteps;
-    float totalDensity = 0;
-    for (int i = 0; i < lightSteps; i++)
-    {
-        // Sample the density at the current step
-        pos += dirToLight * stepSize;
-        totalDensity += max(0, SampleDensity(pos) * stepSize);
-    }
-
-    // Use beers law to calculate the transmittance of the light as it passes through the container
-    float lightAbsTowardSun = lightAbsorptionData.x;
-    float darknessThreshold = lightAbsorptionData.z;
-    float transmittance = exp(-totalDensity * lightAbsTowardSun);
-    return darknessThreshold + transmittance * (1 - darknessThreshold);
-}
-
 [numthreads(8, 8, 1)]
 void main( int3 id : SV_DispatchThreadID )
 {
     // Get the UVs of the screen
     float2 resolution = float2(0, 0);
     Result.GetDimensions(resolution.x, resolution.y);
-    float2 uv = (float2(id.x, resolution.y - id.y) / resolution * 2 - 1);
+    float2 uv = (float2(id.x, resolution.y - id.y) / resolution); // Get the uvs between 0 and 1 from the texture resolution
+    uv = uv * 2 - 1; // Convert UVs from between 0 and 1 to between -1 and 1
 
     // Set the colour to the source render texture initially
     float4 col = Source[id.xy];
@@ -209,54 +132,30 @@ void main( int3 id : SV_DispatchThreadID )
 
     // Calculate the depth
     float3 viewVector = GetViewVector(uv);
-    //float depth = depthMap.SampleLevel(sampler0, id.xy / resolution, 0) /** length(viewVector)*/;
-    float depth = depthMap[id.xy] /** length(viewVector)*/;
-    float linearDepth = LinearEyeDepth(depth) * length(viewVector);
+    float depth = depthMap[id.xy];
+    float linearDepth = LinearEyeDepth(depth) * length(viewVector);     // Unity method of getting linear eye depth - Got from Sebastian Lague video on clouds: https://www.youtube.com/watch?v=4QOcCGI6xOU&t=284
+    //float linearDepth = GetLinearDepth(depth) * length(viewVector);   // Found on forums - Gets linear depth from near to far plane (near being 0, far being 1)
 
     // Get the ray distance information from the box
     float2 rayBoxInfo = RayBoxDst(containerBoundsMin.xyz, containerBoundsMax.xyz, ro, rd);
     float dstToBox = rayBoxInfo.x;
     float dstInsideBox = rayBoxInfo.y;
 
-    // Ray marching
-    int numSteps = densitySettings.z;
-    float dstTravelled = 0.0f;
-    float transmittance = 1;
-    float3 lightEnergy = 0;
-    float lightAbsThroughCloud = lightAbsorptionData.y;
-    float stepSize = dstInsideBox / numSteps;   // Only march within the container
-    float3 entryPoint = ro + rd * dstToBox;     // Point of intersection with the cloud container
-    for (int i = 0; i < numSteps; i++)
+    // Only shade black if inside the box
+    bool rayHitBox = dstInsideBox > 0 && dstToBox < linearDepth;
+    if (rayHitBox)
     {
-        // March ray inside the box
-        float3 rayPos = entryPoint + rd * dstTravelled;
-        float density = SampleDensity(rayPos);
-
-        // Only update the values if the density sampled is greater than zero
-        if (density > 0)
-        {
-            float lightTransmittance = LightMarch(rayPos);
-            lightEnergy += density * stepSize * transmittance * lightTransmittance;
-            transmittance *= exp(-density * stepSize * lightAbsThroughCloud);
-
-            // If the transmittance is very low, smapling won't effect much, so break
-            if (transmittance < 0.01)
-                break;
-        }
-
-        dstTravelled += stepSize;
+        col = 0;
+        //col = shapeNoiseTex.SampleLevel(sampler0, pNear / 10, 0);
     }
 
-    //// Only shade black if inside the box
-    //bool rayHitBox = dstInsideBox > 0 && dstToBox < linearDepth;
-    //if (rayHitBox)
-    //{
-    //    col = 0;
-    //    //col = shapeNoiseTex.SampleLevel(sampler0, pNear / 10, 0);
-    //}
+    // Only show on left half of screen
+    if (uv.x < 0)
+    {
+        //col.xyzw = depth; // Show depth
+        //col.xyzw = linearDepth; // Show linear depth
+    }
 
-    // Calculate the final colour of the clouds
-    float4 cloudCol = lightDiffuse * float4(lightEnergy, 0);
-    col = col * transmittance + cloudCol;
+    //col = float4(uv, 0, 0); // Show UVs
     Result[id.xy] = col;
 }
