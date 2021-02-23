@@ -108,17 +108,17 @@ void NoiseGeneratorShader::SetNoiseSettings(WorleyNoiseSettings val)
 	worleySettings.pointsC = GenerateWorleyNoisePoints(worleySettings.seed, worleySettings.numCellsC);
 
 	// Fill in point data
-	XMFLOAT4* pointsA = new XMFLOAT4[worleySettings.pointsA.size()];	// REMEMBER TO DELETE THIS IN DECONSTRUCTOR
+	XMFLOAT4* pointsA = new XMFLOAT4[worleySettings.pointsA.size()];
 	for (size_t i = 0; i < worleySettings.pointsA.size(); i++)
 		pointsA[i] = worleySettings.pointsA[i];
 
 	// Fill in point data
-	XMFLOAT4* pointsB = new XMFLOAT4[worleySettings.pointsB.size()];	// REMEMBER TO DELETE THIS IN DECONSTRUCTOR
+	XMFLOAT4* pointsB = new XMFLOAT4[worleySettings.pointsB.size()];
 	for (size_t i = 0; i < worleySettings.pointsB.size(); i++)
 		pointsB[i] = worleySettings.pointsB[i];
 
 	// Fill in point data
-	XMFLOAT4* pointsC = new XMFLOAT4[worleySettings.pointsC.size()];	// REMEMBER TO DELETE THIS IN DECONSTRUCTOR
+	XMFLOAT4* pointsC = new XMFLOAT4[worleySettings.pointsC.size()];
 	for (size_t i = 0; i < worleySettings.pointsC.size(); i++)
 		pointsC[i] = worleySettings.pointsC[i];
 

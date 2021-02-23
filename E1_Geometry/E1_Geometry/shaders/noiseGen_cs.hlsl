@@ -107,8 +107,7 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
 
     // Calculate the maximum distance by getting the distance across the diagonal of a cell
     float cellWidth = 1 / (numCells.x + 1);
-    float3 cellSize = float3(cellWidth, cellWidth, cellWidth);
-    float maxDist = sqrt(dot(cellSize, cellSize));
+    float maxDist = sqrt(3) * cellWidth;
 
     // Calculate each worley layer
     float layerA = GenerateWorleyNoise(pointsA, numCells.x, uvw);
