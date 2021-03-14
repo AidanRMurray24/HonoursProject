@@ -6,7 +6,7 @@
 #include "../DXFramework/DXF.h"
 #include "GPUTimer.h"
 #include <vector>
-#include "NoiseGeneratorShader.h"
+#include "WorleyNoiseShader.h"
 
 // Scene objects
 #include "CloudContainer.h"
@@ -80,12 +80,14 @@ private:
 	bool textureGenerated;
 	bool showShapeNoiseTexture;
 	bool showDetailNoiseTexture;
+	bool showPerlinNoiseTexture;
 	float shapeNoiseGenTexRes;
 	float detailNoiseGenTexRes;
 	float tileVal;
 	float sliceVal;
-	NoiseGeneratorShader::WorleyNoiseSettings shapeNoiseSettings;
-	NoiseGeneratorShader::WorleyNoiseSettings detailNoiseSettings;
+	bool noiseGenerated[4];
+	WorleyNoiseShader::WorleyNoiseSettings shapeNoiseSettings[4];
+	WorleyNoiseShader::WorleyNoiseSettings detailNoiseSettings;
 
 	// Light Settings
 	float lightColour[3];

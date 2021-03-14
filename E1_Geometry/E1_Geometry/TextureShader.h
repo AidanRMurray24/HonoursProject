@@ -17,14 +17,15 @@ private:
 	struct SliceBufferType
 	{
 		float sliceNum;
-		XMFLOAT3 padding;
+		float tileVal;
+		XMFLOAT2 padding;
 	};
 
 public:
 	TextureShader(ID3D11Device* device, HWND hwnd, TextureType _type);
 	~TextureShader();
 
-	void setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX &world, const XMMATRIX &view, const XMMATRIX &projection, ID3D11ShaderResourceView* texture, float sliceVal = 0);
+	void setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX &world, const XMMATRIX &view, const XMMATRIX &projection, ID3D11ShaderResourceView* texture, float sliceVal = 0, float tileVal = 1);
 
 private:
 	void initShader(const wchar_t*, const wchar_t*);

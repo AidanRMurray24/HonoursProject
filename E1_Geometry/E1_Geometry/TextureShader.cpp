@@ -95,7 +95,7 @@ void TextureShader::initShader(const wchar_t* vsFilename, const wchar_t* psFilen
 }
 
 
-void TextureShader::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX &worldMatrix, const XMMATRIX &viewMatrix, const XMMATRIX &projectionMatrix, ID3D11ShaderResourceView* texture, float sliceVal)
+void TextureShader::setShaderParameters(ID3D11DeviceContext* deviceContext, const XMMATRIX &worldMatrix, const XMMATRIX &viewMatrix, const XMMATRIX &projectionMatrix, ID3D11ShaderResourceView* texture, float sliceVal, float tileVal)
 {
 	HRESULT result;
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -128,6 +128,7 @@ void TextureShader::setShaderParameters(ID3D11DeviceContext* deviceContext, cons
 		deviceContext->Map(sliceBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 		slicePtr = (SliceBufferType*)mappedResource.pData;
 		slicePtr->sliceNum = (float)sliceVal;
+		slicePtr->tileVal = (float)tileVal;
 		deviceContext->Unmap(sliceBuffer, 0);
 		deviceContext->PSSetConstantBuffers(0, 1, &sliceBuffer);
 	}

@@ -171,7 +171,8 @@
     <ClCompile Include="GPUTimer.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="ManipulationShader.cpp" />
-    <ClCompile Include="NoiseGeneratorShader.cpp" />
+    <ClCompile Include="WorleyNoiseShader.cpp" />
+    <ClCompile Include="PerlinNoiseShader.cpp" />
     <ClCompile Include="SceneObject.cpp" />
     <ClCompile Include="SimpleRayMarcherShader.cpp" />
     <ClCompile Include="SystemParams.cpp" />
@@ -181,13 +182,15 @@
   <ItemGroup>
     <ClInclude Include="App1.h" />
     <ClInclude Include="Assets.h" />
+    <ClInclude Include="BufferCreationHelper.h" />
     <ClInclude Include="CloudContainer.h" />
     <ClInclude Include="CloudFragShader.h" />
     <ClInclude Include="CloudMarcherShader.h" />
     <ClInclude Include="DepthShader.h" />
     <ClInclude Include="GPUTimer.h" />
     <ClInclude Include="ManipulationShader.h" />
-    <ClInclude Include="NoiseGeneratorShader.h" />
+    <ClInclude Include="WorleyNoiseShader.h" />
+    <ClInclude Include="PerlinNoiseShader.h" />
     <ClInclude Include="SceneObject.h" />
     <ClInclude Include="SimpleRayMarcherShader.h" />
     <ClInclude Include="SystemParams.h" />
@@ -228,8 +231,18 @@
     <FxCompile Include="shaders\manipulation_vs.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
     </FxCompile>
-    <FxCompile Include="shaders\noiseGen_cs.hlsl">
+    <FxCompile Include="shaders\worleyNoise_cs.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+    </FxCompile>
+    <FxCompile Include="shaders\perlinNoise_cs.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
     </FxCompile>
     <FxCompile Include="shaders\simpleRayMarcher_cs.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>

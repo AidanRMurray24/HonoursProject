@@ -10,12 +10,13 @@ struct Assets
 	class CloudMarcherShader* cloudMarcherShader = nullptr;
 	class ManipulationShader* manipulationShader = nullptr;
 	class SimpleRayMarcherShader* rayMarcherShader = nullptr;
-	class NoiseGeneratorShader* shapeNoiseGenShader = nullptr;
-	class NoiseGeneratorShader* detailNoiseGenShader = nullptr;
+	class WorleyNoiseShader* shapeNoiseGenShader = nullptr;
+	class WorleyNoiseShader* detailNoiseGenShader = nullptr;
 	class TextureShader* tex2DShader = nullptr;
 	class TextureShader* tex3DShader = nullptr;
 	class DepthShader* depthShader = nullptr;
 	class CloudFragShader* cloudFragShader = nullptr;
+	class PerlinNoiseShader* perlinNoiseShader = nullptr;
 
 	// Meshes
 	class CubeMesh* cubeMesh = nullptr;
@@ -40,6 +41,7 @@ struct Assets
 		CLEAN_POINTER(tex3DShader);
 		CLEAN_POINTER(depthShader);
 		CLEAN_POINTER(cloudFragShader);
+		CLEAN_POINTER(perlinNoiseShader);
 
 		// Meshes
 		CLEAN_POINTER(cubeMesh);

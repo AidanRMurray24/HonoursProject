@@ -7,10 +7,11 @@
 #include "ManipulationShader.h"
 #include "SimpleRayMarcherShader.h"
 #include "TextureShader.h"
-#include "NoiseGeneratorShader.h"
+#include "WorleyNoiseShader.h"
 #include "CloudMarcherShader.h"
 #include "DepthShader.h"
 #include "CloudFragShader.h"
+#include "PerlinNoiseShader.h"
 
 App1::App1()
 {
@@ -33,15 +34,16 @@ App1::App1()
 	shapeNoiseGenTexRes = 128;
 	detailNoiseGenTexRes = 128;
 	textureGenerated = false;
-	showShapeNoiseTexture = false;
+	showShapeNoiseTexture = true;
 	showDetailNoiseTexture = false;
+	showPerlinNoiseTexture = false;
 	tileVal = 1.0f;
 	sliceVal = 0;
 
 	// Cloud Settings
 	densityThreshold = 0.6f;
 	densityMultiplier = 1.0f;
-	densitySteps = 40;
+	densitySteps = 100;
 	shapeNoiseTexOffsetArray[0] = 0;
 	shapeNoiseTexOffsetArray[1] = 0;
 	shapeNoiseTexOffsetArray[2] = 0;
@@ -84,19 +86,58 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 
 	LoadAssets(hwnd);
 
-	// Set noise settings
-	shapeNoiseSettings.seed = 0;
-	shapeNoiseSettings.numCellsA = 5;
-	shapeNoiseSettings.numCellsB = 10;
-	shapeNoiseSettings.numCellsC = 15;
-	shapeNoiseSettings.persistence = 0.5f;
-	assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings);
+	// Set shape noise settings
+	{
+		// RED
+		shapeNoiseSettings[0].seed = 0;
+		shapeNoiseSettings[0].numCellsA = 5;
+		shapeNoiseSettings[0].numCellsB = 10;
+		shapeNoiseSettings[0].numCellsC = 15;
+		shapeNoiseSettings[0].persistence = 0.5f;
+		shapeNoiseSettings[0].channel = XMFLOAT4(1, 0, 0, 0);
+		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings[0], WorleyNoiseShader::TextureChannel::RED);
+
+		// GREEN
+		shapeNoiseSettings[1].seed = 0;
+		shapeNoiseSettings[1].numCellsA = 5;
+		shapeNoiseSettings[1].numCellsB = 10;
+		shapeNoiseSettings[1].numCellsC = 15;
+		shapeNoiseSettings[1].persistence = 0.5f;
+		shapeNoiseSettings[1].channel = XMFLOAT4(0, 1, 0, 0);
+		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings[1], WorleyNoiseShader::TextureChannel::GREEN);
+
+		// BLUE
+		shapeNoiseSettings[2].seed = 0;
+		shapeNoiseSettings[2].numCellsA = 10;
+		shapeNoiseSettings[2].numCellsB = 15;
+		shapeNoiseSettings[2].numCellsC = 20;
+		shapeNoiseSettings[2].persistence = 0.5f;
+		shapeNoiseSettings[2].channel = XMFLOAT4(0, 0, 1, 0);
+		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings[2], WorleyNoiseShader::TextureChannel::BLUE);
+
+		// ALPHA
+		shapeNoiseSettings[3].seed = 0;
+		shapeNoiseSettings[3].numCellsA = 5;
+		shapeNoiseSettings[3].numCellsB = 10;
+		shapeNoiseSettings[3].numCellsC = 15;
+		shapeNoiseSettings[3].persistence = 0.5f;
+		shapeNoiseSettings[3].channel = XMFLOAT4(0, 0, 0, 1);
+		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings[3], WorleyNoiseShader::TextureChannel::ALPHA);
+
+		noiseGenerated[0] = false;
+		noiseGenerated[1] = false;
+		noiseGenerated[2] = false;
+		noiseGenerated[3] = false;
+	}
+
+	// Set detail noise settings
 	detailNoiseSettings.seed = 0;
 	detailNoiseSettings.numCellsA = 7;
 	detailNoiseSettings.numCellsB = 17;
 	detailNoiseSettings.numCellsC = 24;
-	detailNoiseSettings.persistence = 0.76f;
-	assets->detailNoiseGenShader->SetNoiseSettings(detailNoiseSettings);
+	detailNoiseSettings.persistence = 0.5f;
+	detailNoiseSettings.channel = XMFLOAT4(1, 0, 0, 0);
+	assets->detailNoiseGenShader->SetNoiseSettings(detailNoiseSettings, WorleyNoiseShader::TextureChannel::RED);
 
 	// Initialise timers
 	noiseTimer = new GPUTimer(renderer->getDevice(), renderer->getDeviceContext());
@@ -158,11 +199,11 @@ bool App1::frame()
 
 	// Re-calculate compute time every 5 seconds
 	elapsedTime += timer->getTime();
-	if (elapsedTime > 1)
+	/*if (elapsedTime > 1)
 	{
 		elapsedTime = 0;
 		timetaken = noiseTimer->GetTimeTaken();
-	}
+	}*/
 
 	return true;
 }
@@ -170,7 +211,7 @@ bool App1::frame()
 bool App1::render()
 {
 	// Only generate the textures at the start
-	if (!textureGenerated)
+	//if (!textureGenerated)
 	{
 		textureGenerated = true;
 		GenerateNoiseTextures();
@@ -188,18 +229,39 @@ bool App1::render()
 void App1::GenerateNoiseTextures()
 {
 	// Generate shape noise texture
-	NoiseGeneratorShader* shader = SystemParams::GetInstance().GetAssets().shapeNoiseGenShader;
-	shader->setShaderParameters(renderer->getDeviceContext(), tileVal);
-	noiseTimer->StartTimer();
+	WorleyNoiseShader* shader = SystemParams::GetInstance().GetAssets().shapeNoiseGenShader;
+	if (!noiseGenerated[0] && elapsedTime > 0)
+	{
+		noiseGenerated[0] = true;
+		shader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::RED);
+		shader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
+		shader->unbind(renderer->getDeviceContext());
+	}
+	if (!noiseGenerated[1] && noiseGenerated[0] && elapsedTime > 1)
+	{
+		noiseGenerated[1] = true;
+		shader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::GREEN);
+		shader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
+		shader->unbind(renderer->getDeviceContext());
+	}
+	/*shader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::BLUE);
 	shader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
-	shader->unbind(renderer->getDeviceContext());
-	noiseTimer->StopTimer();
+	shader->unbind(renderer->getDeviceContext());*/
+	/*shader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::ALPHA);
+	shader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
+	shader->unbind(renderer->getDeviceContext());*/
 
 	// Generate detail noise texture
 	shader = SystemParams::GetInstance().GetAssets().detailNoiseGenShader;
-	shader->setShaderParameters(renderer->getDeviceContext(), tileVal);
+	shader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::RED);
 	shader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
 	shader->unbind(renderer->getDeviceContext());
+
+	// Generate perlin noise texture
+	PerlinNoiseShader* perlinNoiseShader = SystemParams::GetInstance().GetAssets().perlinNoiseShader;
+	perlinNoiseShader->setShaderParameters(renderer->getDeviceContext());
+	perlinNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
+	perlinNoiseShader->unbind(renderer->getDeviceContext());
 }
 
 void App1::GeometryPass()
@@ -310,13 +372,19 @@ void App1::FinalPass()
 	if (showShapeNoiseTexture)
 	{
 		assets->noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
-		assets->tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->shapeNoiseGenShader->getSRV(), sliceVal);
+		assets->tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->shapeNoiseGenShader->getSRV(), sliceVal, tileVal);
 		assets->tex3DShader->render(renderer->getDeviceContext(), assets->noiseGenOrthoMesh->getIndexCount());
 	}
 	if (showDetailNoiseTexture)
 	{
 		assets->noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
-		assets->tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->detailNoiseGenShader->getSRV(), sliceVal);
+		assets->tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->detailNoiseGenShader->getSRV(), sliceVal, tileVal);
+		assets->tex3DShader->render(renderer->getDeviceContext(), assets->noiseGenOrthoMesh->getIndexCount());
+	}
+	if (showPerlinNoiseTexture)
+	{
+		assets->noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
+		assets->tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->perlinNoiseShader->getSRV(), sliceVal, tileVal);
 		assets->tex3DShader->render(renderer->getDeviceContext(), assets->noiseGenOrthoMesh->getIndexCount());
 	}
 
@@ -347,6 +415,7 @@ void App1::gui()
 		ImGui::Text("Noise Compute-time(ms): %.5f", timetaken * 1000);
 		ImGui::Checkbox("ShowShapeNoiseTexture", &showShapeNoiseTexture);
 		ImGui::Checkbox("ShowDetailNoiseTexture", &showDetailNoiseTexture);
+		ImGui::Checkbox("ShowPerlinNoiseTexture", &showPerlinNoiseTexture);
 		ImGui::SliderFloat("TileValue", &tileVal, 0, 10);
 		ImGui::SliderFloat("Slice", &sliceVal, 0, 1);
 	}
@@ -416,17 +485,18 @@ void App1::LoadAssets(HWND hwnd)
 	assets.rayMarcherShader = new SimpleRayMarcherShader(device, hwnd, screenWidth, screenHeight, camera, light);
 	assets.tex2DShader = new TextureShader(device, hwnd, TextureType::TEXTURE2D);
 	assets.tex3DShader = new TextureShader(device, hwnd, TextureType::TEXTURE3D);
-	assets.shapeNoiseGenShader = new NoiseGeneratorShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
-	assets.detailNoiseGenShader = new NoiseGeneratorShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
+	assets.shapeNoiseGenShader = new WorleyNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
+	assets.detailNoiseGenShader = new WorleyNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, screenWidth, screenHeight, camera, light);
 	assets.depthShader = new DepthShader(device, hwnd);
 	assets.cloudFragShader = new CloudFragShader(device, hwnd, screenWidth, screenHeight, camera);
+	assets.perlinNoiseShader = new PerlinNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 
 	// Initialise Meshes
 	assets.cubeMesh = new CubeMesh(device, deviceContext);
 	assets.planeMesh = new PlaneMesh(device, deviceContext);
 	assets.screenOrthoMesh = new OrthoMesh(device, deviceContext, screenWidth, screenHeight);
-	assets.noiseGenOrthoMesh = new OrthoMesh(device, deviceContext, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
+	assets.noiseGenOrthoMesh = new OrthoMesh(device, deviceContext, shapeNoiseGenTexRes * 2, shapeNoiseGenTexRes * 2);
 
 	// Initialise textures
 	textureMgr->loadTexture(L"brick", L"res/brick1.dds");

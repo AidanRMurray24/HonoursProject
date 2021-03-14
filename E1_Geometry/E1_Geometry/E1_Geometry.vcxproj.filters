@@ -48,9 +48,6 @@
     <ClCompile Include="TextureShader.cpp">
       <Filter>Source Files\Shaders</Filter>
     </ClCompile>
-    <ClCompile Include="NoiseGeneratorShader.cpp">
-      <Filter>Source Files\Shaders</Filter>
-    </ClCompile>
     <ClCompile Include="CloudMarcherShader.cpp">
       <Filter>Source Files\Shaders</Filter>
     </ClCompile>
@@ -75,6 +72,12 @@
     <ClCompile Include="CloudFragShader.cpp">
       <Filter>Source Files\Shaders</Filter>
     </ClCompile>
+    <ClCompile Include="PerlinNoiseShader.cpp">
+      <Filter>Source Files\Shaders</Filter>
+    </ClCompile>
+    <ClCompile Include="WorleyNoiseShader.cpp">
+      <Filter>Source Files\Shaders</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App1.h">
@@ -87,9 +90,6 @@
       <Filter>Header Files\Shaders</Filter>
     </ClInclude>
     <ClInclude Include="TextureShader.h">
-      <Filter>Header Files\Shaders</Filter>
-    </ClInclude>
-    <ClInclude Include="NoiseGeneratorShader.h">
       <Filter>Header Files\Shaders</Filter>
     </ClInclude>
     <ClInclude Include="CloudMarcherShader.h">
@@ -119,6 +119,15 @@
     <ClInclude Include="CloudFragShader.h">
       <Filter>Header Files\Shaders</Filter>
     </ClInclude>
+    <ClInclude Include="BufferCreationHelper.h">
+      <Filter>Header Files\Tools</Filter>
+    </ClInclude>
+    <ClInclude Include="PerlinNoiseShader.h">
+      <Filter>Header Files\Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="WorleyNoiseShader.h">
+      <Filter>Header Files\Shaders</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\manipulation_ps.hlsl">
@@ -134,9 +143,6 @@
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="shaders\simpleRayMarcher_cs.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\noiseGen_cs.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="shaders\texture3D_ps.hlsl">
@@ -158,6 +164,12 @@
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="shaders\cloudFrag_vs.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\perlinNoise_cs.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\worleyNoise_cs.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>

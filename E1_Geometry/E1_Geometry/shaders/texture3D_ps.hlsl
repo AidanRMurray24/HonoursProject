@@ -8,7 +8,8 @@ SamplerState Sampler0 : register(s0);
 cbuffer SliceBuffer : register(b0)
 {
 	float sliceVal;
-	float3 padding;
+	float tileVal;
+	float2 padding;
 };
 
 struct InputType
@@ -25,5 +26,5 @@ float invLerp(float from, float to, float value) {
 float4 main(InputType input) : SV_TARGET
 {
 	// Sample the pixel color from the texture using the sampler at this texture coordinate location.
-	return texture0.Sample(Sampler0, float3(input.tex.xy, sliceVal));
+	return texture0.Sample(Sampler0, float3(input.tex.xy, sliceVal) * tileVal);
 }

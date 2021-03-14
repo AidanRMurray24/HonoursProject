@@ -87,7 +87,6 @@ Ray CreateCameraRay(float2 uv)
 }
 
 // Slabs implementation
-// Returns (dstToBox, dstInsideBox). If ray misses box, dstInsideBox will be zero
 float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 rayDir) 
 {
     // Inverse ray direction to stop division by zero
@@ -125,36 +124,37 @@ float SampleDensity(float3 pos)
 
     // Calculate the uvw point of the texture to sample using the current position in space, applying the scale and adding on the offset
     float3 uvw = pos;
-    float3 shapeSamplePos = uvw / detailNoiseTexTransform.w + detailNoiseTexTransform.xyz;
+    float3 shapeSamplePos = uvw / shapeNoiseTexTransform.w + shapeNoiseTexTransform.xyz;
 
-    // Calculate falloff at along x/z edges of the cloud container
-    const float containerEdgeFadeDst = 50;
-    float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - containerBoundsMin.x, containerBoundsMax.x - pos.x));
-    float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - containerBoundsMin.z, containerBoundsMax.z - pos.z));
-    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
+    //// Calculate falloff at along x/z edges of the cloud container
+    //const float containerEdgeFadeDst = 50;
+    //float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - containerBoundsMin.x, containerBoundsMax.x - pos.x));
+    //float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - containerBoundsMin.z, containerBoundsMax.z - pos.z));
+    //float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
 
-    // Calculate height gradient from weather map
-    float3 size = containerBoundsMax - containerBoundsMin;
-    float gMin = .2;
-    float gMax = .7;
-    float heightPercent = (pos.y - containerBoundsMin.y) / size.y;
-    float heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(remap(heightPercent, 1, gMax, 0, 1));
-    heightGradient *= edgeWeight;
+    //// Calculate height gradient from weather map
+    //float3 size = containerBoundsMax - containerBoundsMin;
+    //float gMin = .2;
+    //float gMax = .7;
+    //float heightPercent = (pos.y - containerBoundsMin.y) / size.y;
+    //float heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(remap(heightPercent, 1, gMax, 0, 1));
+    //heightGradient *= edgeWeight;
 
     // Sample the shape noise texture at the current point
     float4 shapeNoiseWeights = float4(1, 0, 0, 0);
     float4 shapeNoise = shapeNoiseTex.SampleLevel(sampler0, shapeSamplePos, 0);
-    float4 normalisedWeights = shapeNoiseWeights / dot(shapeNoiseWeights, 1);
-    float shapeFBM = dot(shapeNoise, normalisedWeights) * heightGradient;
+    float4 normalisedWeights = normalize(shapeNoiseWeights);
+    float shapeFBM = dot(shapeNoise, normalisedWeights) /** heightGradient*/;
 
     // Calculate the density of the shape noise
-    float densityOffset = -4.27;
-    float shapeDensity = shapeFBM + densityOffset * .1f;
+    float densityOffset = -densityThreshold;
+    float shapeDensity = shapeFBM - densityThreshold;
 
+    // If the shape density is not greater than 0 there is no need to calculate the details
     if (shapeDensity > 0)
     {
         // Sample detail noise
-        float3 detailSamplePos = uvw / shapeNoiseTexTransform.w + shapeNoiseTexTransform.xyz;
+        float3 detailSamplePos = uvw / detailNoiseTexTransform.w + detailNoiseTexTransform.xyz;
         float detailNoise = detailNoiseTex.SampleLevel(sampler0, detailSamplePos, 0).x;
 
         float oneMinusShape = 1 - shapeDensity;

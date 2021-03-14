@@ -1,12 +1,14 @@
 
 RWTexture3D<float4> Result : register(u0);
-StructuredBuffer<float4> pointsA : register(t0);
-StructuredBuffer<float4> pointsB : register(t1);
-StructuredBuffer<float4> pointsC : register(t2);
+Texture3D<float4> Source : register(t0);
+StructuredBuffer<float4> pointsA : register(t1);
+StructuredBuffer<float4> pointsB : register(t2);
+StructuredBuffer<float4> pointsC : register(t3);
 
 cbuffer WorleyBuffer : register(b0)
 {
     float4 numCells;
+    float4 channel;
     float3 padding;
     float noisePersistence = .5f;
 };
@@ -109,15 +111,35 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     float cellWidth = 1 / (numCells.x + 1);
     float maxDist = sqrt(3) * cellWidth;
 
+    const int temp = 10;
+    float4 tempArray[temp];
+
     // Calculate each worley layer
     float layerA = GenerateWorleyNoise(pointsA, numCells.x, uvw);
     float layerB = GenerateWorleyNoise(pointsB, numCells.y, uvw);
     float layerC = GenerateWorleyNoise(pointsC, numCells.z, uvw);
 
+    // Get the sum of the layed noise using fBm
     float noiseSum = layerA + (layerB * noisePersistence) + (layerC * noisePersistence * noisePersistence);
     float maxVal = 1 + (noisePersistence) + (noisePersistence * noisePersistence);
 
-    col.xyz = (noiseSum / maxVal) / maxDist;
+    // Normalise values
+    col.xyzw = (noiseSum / maxVal) / (maxDist * 0.5f);
 
-    Result[id.xyz] = 1 - col;
+    // Invert noise
+    col = 1 - col;
+
+    // Add the noise to the selected colour channel
+    col = (col * channel) + Source[id.xyz];
+
+    /*if (length(Source[id.xyz]) <= 0)
+    {
+        col.xyzw = 0;
+    }
+    else
+    {
+        col.xyzw = 1;
+    }*/
+
+    Result[id.xyz] = col;
 }

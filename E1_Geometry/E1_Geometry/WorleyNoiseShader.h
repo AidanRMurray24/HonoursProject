@@ -4,9 +4,17 @@
 using namespace std;
 using namespace DirectX;
 
-class NoiseGeneratorShader : public BaseShader
+class WorleyNoiseShader : public BaseShader
 {
 public:
+	enum class TextureChannel
+	{
+		RED = 0,
+		GREEN = 1,
+		BLUE = 2,
+		ALPHA = 3
+	};
+
 	struct WorleyNoiseSettings
 	{
 		int seed = 0;
@@ -17,21 +25,24 @@ public:
 		std::vector<XMFLOAT4> pointsB;
 		std::vector<XMFLOAT4> pointsC;
 		float persistence = .5f;
+		XMFLOAT4 channel = XMFLOAT4(1,0,0,0);
 	};
+
 
 private:
 	struct WorleyBufferType
 	{
 		XMFLOAT4 numCells;
+		XMFLOAT4 channel;
 		XMFLOAT3 padding;
 		float noisePersistence = .5f;
 	};
 
 public:
-	NoiseGeneratorShader(ID3D11Device* device, HWND hwnd, int w, int h, int d);
-	~NoiseGeneratorShader();
+	WorleyNoiseShader(ID3D11Device* device, HWND hwnd, int w, int h, int d);
+	~WorleyNoiseShader();
 
-	void setShaderParameters(ID3D11DeviceContext* dc, float tileVal);
+	void setShaderParameters(ID3D11DeviceContext* dc, TextureChannel channel);
 	void createGPUViews();
 	void unbind(ID3D11DeviceContext* dc);
 
@@ -39,17 +50,13 @@ public:
 	inline ID3D11ShaderResourceView* getSRV() { return m_srvTexOutput; }
 
 	// Setters
-	void SetNoiseSettings(WorleyNoiseSettings val);
+	void SetNoiseSettings(WorleyNoiseSettings val, TextureChannel channel);
 
 private:
 	void initShader(const wchar_t* cfile, const wchar_t* blank);
 	std::vector<XMFLOAT4>& GenerateWorleyNoisePoints(int seed, int numCells);
-	HRESULT CreateStructuredBuffer(ID3D11Device* pDevice, UINT uElementSize, UINT uCount, void* pInitData, ID3D11Buffer** ppBufOut);
-	HRESULT CreateBufferSRV(ID3D11Device* pDevice, ID3D11Buffer* pBuffer, ID3D11ShaderResourceView** ppSRVOut);
-	void CreateConstantBuffer(ID3D11Device* renderer, UINT uElementSize, ID3D11Buffer** ppBufOut);
 
 	// Texture set
-	ID3D11Texture2D* tex2D;
 	ID3D11Texture3D* tex3D;
 	ID3D11ShaderResourceView* m_srvTexOutput;
 	ID3D11UnorderedAccessView* m_uavAccess;
@@ -66,7 +73,10 @@ private:
 	ID3D11Buffer* worleyBuffer;
 
 	// Worley settings
-	WorleyNoiseSettings worleySettings;
+	WorleyNoiseSettings redChannelSettings;
+	WorleyNoiseSettings greenChannelSettings;
+	WorleyNoiseSettings blueChannelSettings;
+	WorleyNoiseSettings alphaChannelSettings;
 
 	// Texture sizes
 	int texWidth;
