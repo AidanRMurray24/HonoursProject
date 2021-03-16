@@ -81,12 +81,12 @@ private:
 	bool showShapeNoiseTexture;
 	bool showDetailNoiseTexture;
 	bool showPerlinNoiseTexture;
+	bool usePerlinNoise;
 	float shapeNoiseGenTexRes;
 	float detailNoiseGenTexRes;
 	float tileVal;
 	float sliceVal;
-	bool noiseGenerated[4];
-	WorleyNoiseShader::WorleyNoiseSettings shapeNoiseSettings[4];
+	WorleyNoiseShader::WorleyNoiseSettings shapeNoiseSettings;
 	WorleyNoiseShader::WorleyNoiseSettings detailNoiseSettings;
 
 	// Light Settings

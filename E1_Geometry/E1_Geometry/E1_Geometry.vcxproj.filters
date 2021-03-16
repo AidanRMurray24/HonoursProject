@@ -78,6 +78,9 @@
     <ClCompile Include="WorleyNoiseShader.cpp">
       <Filter>Source Files\Shaders</Filter>
     </ClCompile>
+    <ClCompile Include="PerlinWorleyShader.cpp">
+      <Filter>Source Files\Shaders</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App1.h">
@@ -128,6 +131,9 @@
     <ClInclude Include="WorleyNoiseShader.h">
       <Filter>Header Files\Shaders</Filter>
     </ClInclude>
+    <ClInclude Include="PerlinWorleyShader.h">
+      <Filter>Header Files\Shaders</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\manipulation_ps.hlsl">
@@ -170,6 +176,9 @@
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="shaders\worleyNoise_cs.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\perlinWorley_cs.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>

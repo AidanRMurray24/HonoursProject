@@ -210,8 +210,6 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
 	}
 	noise /= maxValue;
 
-	
-
 	float4 colour = float4(noise, noise, noise, 0);
 	Result[id] = colour;
 }

@@ -17,6 +17,7 @@ struct Assets
 	class DepthShader* depthShader = nullptr;
 	class CloudFragShader* cloudFragShader = nullptr;
 	class PerlinNoiseShader* perlinNoiseShader = nullptr;
+	class PerlinWorleyShader* perlinWorleyShader = nullptr;
 
 	// Meshes
 	class CubeMesh* cubeMesh = nullptr;
@@ -42,6 +43,7 @@ struct Assets
 		CLEAN_POINTER(depthShader);
 		CLEAN_POINTER(cloudFragShader);
 		CLEAN_POINTER(perlinNoiseShader);
+		CLEAN_POINTER(perlinWorleyShader);
 
 		// Meshes
 		CLEAN_POINTER(cubeMesh);

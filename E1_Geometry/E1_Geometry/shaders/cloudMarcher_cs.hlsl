@@ -22,7 +22,9 @@ cbuffer ContainerInfoBuffer : register(b1)
 cbuffer CloudSettingsBuffer : register(b2)
 {
     float4 shapeNoiseTexTransform; // Offset = (x,y,z), Scale = w
+    float4 shapeNoiseWeights;
     float4 detailNoiseTexTransform; // Offset = (x,y,z), Scale = w
+    float4 detailNoiseWeights;
     float4 densitySettings; // Density Threshold = x, Density Multiplier = y, Density Steps = z
 }
 
@@ -126,22 +128,21 @@ float SampleDensity(float3 pos)
     float3 uvw = pos;
     float3 shapeSamplePos = uvw / shapeNoiseTexTransform.w + shapeNoiseTexTransform.xyz;
 
-    //// Calculate falloff at along x/z edges of the cloud container
-    //const float containerEdgeFadeDst = 50;
-    //float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - containerBoundsMin.x, containerBoundsMax.x - pos.x));
-    //float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - containerBoundsMin.z, containerBoundsMax.z - pos.z));
-    //float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
+    // Calculate falloff at along x/z edges of the cloud container
+    const float containerEdgeFadeDst = 50;
+    float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - containerBoundsMin.x, containerBoundsMax.x - pos.x));
+    float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - containerBoundsMin.z, containerBoundsMax.z - pos.z));
+    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
 
-    //// Calculate height gradient from weather map
-    //float3 size = containerBoundsMax - containerBoundsMin;
-    //float gMin = .2;
-    //float gMax = .7;
-    //float heightPercent = (pos.y - containerBoundsMin.y) / size.y;
-    //float heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(remap(heightPercent, 1, gMax, 0, 1));
-    //heightGradient *= edgeWeight;
+    // Calculate height gradient from weather map
+    float3 size = containerBoundsMax - containerBoundsMin;
+    float gMin = .2;
+    float gMax = .7;
+    float heightPercent = (pos.y - containerBoundsMin.y) / size.y;
+    float heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(remap(heightPercent, 1, gMax, 0, 1));
+    heightGradient *= edgeWeight;
 
     // Sample the shape noise texture at the current point
-    float4 shapeNoiseWeights = float4(1, 0, 0, 0);
     float4 shapeNoise = shapeNoiseTex.SampleLevel(sampler0, shapeSamplePos, 0);
     float4 normalisedWeights = normalize(shapeNoiseWeights);
     float shapeFBM = dot(shapeNoise, normalisedWeights) /** heightGradient*/;
@@ -155,11 +156,13 @@ float SampleDensity(float3 pos)
     {
         // Sample detail noise
         float3 detailSamplePos = uvw / detailNoiseTexTransform.w + detailNoiseTexTransform.xyz;
-        float detailNoise = detailNoiseTex.SampleLevel(sampler0, detailSamplePos, 0).x;
+        float4 detailNoise = detailNoiseTex.SampleLevel(sampler0, detailSamplePos, 0);
+        float3 normalizedDetailWeights = normalize(detailNoiseWeights.xyz);
+        float detailFBM = dot(detailNoise, normalizedDetailWeights);
 
         float oneMinusShape = 1 - shapeDensity;
         float detailErodeWeight = oneMinusShape * oneMinusShape * oneMinusShape;
-        float cloudDensity = shapeDensity - (1 - detailNoise) * detailErodeWeight;
+        float cloudDensity = shapeDensity - (1 - detailFBM) * detailErodeWeight;
 
         return cloudDensity * densityMultiplier;
     }

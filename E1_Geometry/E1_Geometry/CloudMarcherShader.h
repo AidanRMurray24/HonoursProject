@@ -23,7 +23,9 @@ private:
 	struct CloudSettingsBufferType
 	{
 		XMFLOAT4 shapeNoiseTexTransform; // Offset = (x,y,z), Scale = w
+		XMFLOAT4 shapeNoiseWeights;
 		XMFLOAT4 detailNoiseTexTransform; // Offset = (x,y,z), Scale = w
+		XMFLOAT4 detailNoiseWeights;
 		XMFLOAT4 densitySettings; // Density Threshold = x, Density Multiplier = y, Density Steps = z
 	};
 
@@ -78,6 +80,8 @@ public:
 	inline void SetLightAbsThroughCloud(float val) { absorptionData.y = val; }
 	inline void SetDarknessThreshold(float val) { absorptionData.z = val; }
 	inline void SetLightMarchSteps(int val) { absorptionData.w = val; }
+	inline void SetShapeNoiseWeights(XMFLOAT4 val) { cloudSettings.shapeNoiseWeights = val; }
+	inline void SetDetailNoiseWeights(XMFLOAT4 val) { cloudSettings.detailNoiseWeights = val; }
 
 private:
 	void initShader(const wchar_t* cfile, const wchar_t* blank);

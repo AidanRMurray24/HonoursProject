@@ -171,6 +171,7 @@
     <ClCompile Include="GPUTimer.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="ManipulationShader.cpp" />
+    <ClCompile Include="PerlinWorleyShader.cpp" />
     <ClCompile Include="WorleyNoiseShader.cpp" />
     <ClCompile Include="PerlinNoiseShader.cpp" />
     <ClCompile Include="SceneObject.cpp" />
@@ -189,6 +190,7 @@
     <ClInclude Include="DepthShader.h" />
     <ClInclude Include="GPUTimer.h" />
     <ClInclude Include="ManipulationShader.h" />
+    <ClInclude Include="PerlinWorleyShader.h" />
     <ClInclude Include="WorleyNoiseShader.h" />
     <ClInclude Include="PerlinNoiseShader.h" />
     <ClInclude Include="SceneObject.h" />
@@ -230,6 +232,16 @@
     </FxCompile>
     <FxCompile Include="shaders\manipulation_vs.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+    </FxCompile>
+    <FxCompile Include="shaders\perlinWorley_cs.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
     </FxCompile>
     <FxCompile Include="shaders\worleyNoise_cs.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>

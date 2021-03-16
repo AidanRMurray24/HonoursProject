@@ -52,7 +52,9 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	dc->Map(cloudSettingsBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	cloudSettingsPtr = (CloudSettingsBufferType*)mappedResource.pData;
 	cloudSettingsPtr->shapeNoiseTexTransform = cloudSettings.shapeNoiseTexTransform;
+	cloudSettingsPtr->shapeNoiseWeights = cloudSettings.shapeNoiseWeights;
 	cloudSettingsPtr->detailNoiseTexTransform = cloudSettings.detailNoiseTexTransform;
+	cloudSettingsPtr->detailNoiseWeights = cloudSettings.detailNoiseWeights;
 	cloudSettingsPtr->densitySettings = cloudSettings.densitySettings;
 	dc->Unmap(cloudSettingsBuffer, 0);
 

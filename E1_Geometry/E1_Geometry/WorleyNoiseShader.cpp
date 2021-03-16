@@ -96,10 +96,9 @@ void WorleyNoiseShader::setShaderParameters(ID3D11DeviceContext* dc, TextureChan
 	dc->CSSetUnorderedAccessViews(0, 1, &m_uavAccess, 0);
 
 	// Set SRVs
-	dc->CSSetShaderResources(0, 1, &m_srvTexOutput);
-	dc->CSSetShaderResources(1, 1, &pointsABufferSRV);
-	dc->CSSetShaderResources(2, 1, &pointsBBufferSRV);
-	dc->CSSetShaderResources(3, 1, &pointsCBufferSRV);
+	dc->CSSetShaderResources(0, 1, &pointsABufferSRV);
+	dc->CSSetShaderResources(1, 1, &pointsBBufferSRV);
+	dc->CSSetShaderResources(2, 1, &pointsCBufferSRV);
 
 	// Set Constant buffers
 	dc->CSSetConstantBuffers(0, 1, &worleyBuffer);

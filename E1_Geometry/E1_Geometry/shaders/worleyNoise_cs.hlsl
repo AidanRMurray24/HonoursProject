@@ -1,9 +1,8 @@
 
 RWTexture3D<float4> Result : register(u0);
-Texture3D<float4> Source : register(t0);
-StructuredBuffer<float4> pointsA : register(t1);
-StructuredBuffer<float4> pointsB : register(t2);
-StructuredBuffer<float4> pointsC : register(t3);
+StructuredBuffer<float4> pointsA : register(t0);
+StructuredBuffer<float4> pointsB : register(t1);
+StructuredBuffer<float4> pointsC : register(t2);
 
 cbuffer WorleyBuffer : register(b0)
 {
@@ -103,16 +102,12 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     Result.GetDimensions(resolution.x, resolution.y, resolution.z);
     float3 uvw = id / (float)resolution;
 
-    // Set the colour to the source render texture initially
+    // Set the colour to black initially
     float4 col = float4(0,0,0,0);
-    Result[id.xyz] = col;
 
     // Calculate the maximum distance by getting the distance across the diagonal of a cell
     float cellWidth = 1 / (numCells.x + 1);
     float maxDist = sqrt(3) * cellWidth;
-
-    const int temp = 10;
-    float4 tempArray[temp];
 
     // Calculate each worley layer
     float layerA = GenerateWorleyNoise(pointsA, numCells.x, uvw);
@@ -130,16 +125,6 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     col = 1 - col;
 
     // Add the noise to the selected colour channel
-    col = (col * channel) + Source[id.xyz];
-
-    /*if (length(Source[id.xyz]) <= 0)
-    {
-        col.xyzw = 0;
-    }
-    else
-    {
-        col.xyzw = 1;
-    }*/
-
+    col = (col * channel) + Result[id.xyz];
     Result[id.xyz] = col;
 }
