@@ -145,7 +145,7 @@ float SampleDensity(float3 pos)
     // Sample the shape noise texture at the current point
     float4 shapeNoise = shapeNoiseTex.SampleLevel(sampler0, shapeSamplePos, 0);
     float4 normalisedWeights = normalize(shapeNoiseWeights);
-    float shapeFBM = dot(shapeNoise, normalisedWeights) /** heightGradient*/;
+    float shapeFBM = dot(shapeNoise, normalisedWeights) * heightGradient;
 
     // Calculate the density of the shape noise
     float densityOffset = -densityThreshold;

@@ -109,31 +109,29 @@ double fade(double t) {
 	return t * t * t * (t * (t * 6 - 15) + 10);			// 6t^5 - 15t^4 + 10t^3
 }
 
-int inc(int num) 
+int inc(int num, int size) 
 {
-	int repeat = 0;
 	num++;
-	if (repeat > 0) num %= repeat;
+	if (size > 0) num %= size;
 
 	return num;
 }
 
-double Perlin3D(float3 uvw)
+double Perlin3D(float3 uvw, int size)
 {
 	float x = uvw.x;
 	float y = uvw.y;
 	float z = uvw.z;
 
-	int repeat = 0;
-	if (repeat > 0) {									// If we have any repeat on, change the coordinates to their "local" repetitions
-		x = x % repeat;
-		y = y % repeat;
-		z = z % repeat;
+	if (size > 0) {									// If we have any repeat on, change the coordinates to their "local" repetitions
+		x = x % size;
+		y = y % size;
+		z = z % size;
 	}
 
-	int xi = (int)x & 255;								// Calculate the "unit cube" that the point asked will be located in
-	int yi = (int)y & 255;								// The left bound is ( |_x_|,|_y_|,|_z_| ) and the right bound is that
-	int zi = (int)z & 255;								// plus 1.  Next we calculate the location (from 0.0 to 1.0) in that cube.
+	int xi = (int)x % size;								// Calculate the "unit cube" that the point asked will be located in
+	int yi = (int)y % size;								// The left bound is ( |_x_|,|_y_|,|_z_| ) and the right bound is that
+	int zi = (int)z % size;								// plus 1.  Next we calculate the location (from 0.0 to 1.0) in that cube.
 	double xf = x - (int)x;								// We also fade the location to smooth the result.
 	double yf = y - (int)y;
 	double zf = z - (int)z;
@@ -144,13 +142,13 @@ double Perlin3D(float3 uvw)
 	// Get hash numbers at all 8 corners
 	int aaa, aba, aab, abb, baa, bba, bab, bbb;
 	aaa = permutation[permutation[permutation[xi] + yi] + zi];
-	aba = permutation[permutation[permutation[xi] + inc(yi)] + zi];
-	aab = permutation[permutation[permutation[xi] + yi] + inc(zi)];
-	abb = permutation[permutation[permutation[xi] + inc(yi)] + inc(zi)];
-	baa = permutation[permutation[permutation[inc(xi)] + yi] + zi];
-	bba = permutation[permutation[permutation[inc(xi)] + inc(yi)] + zi];
-	bab = permutation[permutation[permutation[inc(xi)] + yi] + inc(zi)];
-	bbb = permutation[permutation[permutation[inc(xi)] + inc(yi)] + inc(zi)];
+	aba = permutation[permutation[permutation[xi] + inc(yi, size)] + zi];
+	aab = permutation[permutation[permutation[xi] + yi] + inc(zi, size)];
+	abb = permutation[permutation[permutation[xi] + inc(yi, size)] + inc(zi, size)];
+	baa = permutation[permutation[permutation[inc(xi, size)] + yi] + zi];
+	bba = permutation[permutation[permutation[inc(xi, size)] + inc(yi, size)] + zi];
+	bab = permutation[permutation[permutation[inc(xi, size)] + yi] + inc(zi, size)];
+	bbb = permutation[permutation[permutation[inc(xi, size)] + inc(yi, size)] + inc(zi, size)];
 
 	// Trilinear interpolation
 	double x1, x2, y1, y2;
@@ -163,27 +161,6 @@ double Perlin3D(float3 uvw)
 	y2 = lerp(x1, x2, v);
 
 	return (lerp(y1, y2, w) + 1) / 2; // For convenience we bind the result to 0 - 1 (theoretical min/max before is [-1, 1])
-}
-
-double Perlin3DTileable(float3 uvw)
-{
-	float x = uvw.x;
-	float y = uvw.y;
-	float z = uvw.z;
-
-	float scale = (float)16;
-
-	return
-		(
-			Perlin3D(float3(x, y, z)) * (scale - x) * (scale - y) * (scale - z) +
-			Perlin3D(float3(x - scale, y, z)) * x * (scale - y) * (scale - z) +
-			Perlin3D(float3(x, y - scale, z)) * (scale - x) * y * (scale - z) +
-			Perlin3D(float3(x, y, z - scale)) * (scale - x) * (scale - y) * z +
-			Perlin3D(float3(x - scale, y - scale, z)) * x * y * (scale - z) +
-			Perlin3D(float3(x, y - scale, z - scale)) * (scale - x) * y * z +
-			Perlin3D(float3(x - scale, y, z - scale)) * x * (scale - y) * z +
-			Perlin3D(float3(x - scale, y - scale, z - scale)) * x * y * z
-		);
 }
 
 [numthreads(8, 8, 8)]
@@ -203,7 +180,7 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
 	float frequency = lacunarity;
 	for (int i = 0; i < numOctaves; i++)
 	{
-		noise += Perlin3D(uvw * frequency) * persistence;
+		noise += Perlin3D(uvw * frequency, frequency) * persistence;
 		maxValue += persistence;
 		frequency *= lacunarity;
 		persistence *= gain;
