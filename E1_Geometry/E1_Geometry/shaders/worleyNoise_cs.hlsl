@@ -119,7 +119,7 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
     float maxVal = 1 + (noisePersistence) + (noisePersistence * noisePersistence);
 
     // Normalise values
-    col.xyzw = (noiseSum / maxVal) / (maxDist * 0.5f);
+    col.xyzw = (noiseSum / maxVal) / maxDist;
 
     // Invert noise
     col = 1 - col;

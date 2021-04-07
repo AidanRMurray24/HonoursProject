@@ -105,15 +105,3 @@ void PerlinNoiseShader::initShader(const wchar_t* cfile, const wchar_t* blank)
 	BufferCreationHelper::CreateStructuredBuffer(device, sizeof(int), 512, &permutationTable[0], &permutationBuffer);
 	BufferCreationHelper::CreateBufferSRV(renderer, permutationBuffer, &permutationBufferSRV);
 }
-
-std::vector<XMFLOAT4> PerlinNoiseShader::GeneratePerlinGradients(int seed, XMFLOAT4 gridSize)
-{
-	std::vector<XMFLOAT4> gradients;
-	int numGridIntersections = gridSize.x * gridSize.y * gridSize.z;
-	for (size_t i = 0; i < numGridIntersections; i++)
-	{
-		//gradients.push_back();
-	}
-
-	return std::vector<XMFLOAT4>();
-}

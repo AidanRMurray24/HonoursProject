@@ -7,6 +7,7 @@
 #include "GPUTimer.h"
 #include <vector>
 #include "WorleyNoiseShader.h"
+#include "CloudMarcherShader.h"
 
 // Scene objects
 #include "CloudContainer.h"
@@ -24,6 +25,7 @@ public:
 
 protected:
 	bool render();
+	void GenerateWeatherMap();
 	void GenerateNoiseTextures();
 	void GeometryPass();
 	void DepthPass();
@@ -66,14 +68,16 @@ private:
 	float shapeNoiseTexScale;
 	float detailNoiseTexOffsetArray[3];
 	float detailNoiseTexScale;
-	float densityThreshold;
+	float globalCoverage;
 	float densityMultiplier;
 	int densitySteps;
+	float stepSize;
+	float edgeFadePercent;
 
 	// Absorption settings
 	float lightAbsTowardsSun;
 	float lightAbsThroughCloud;
-	float darknessThreshold;
+	float cloudBrightness;
 	int lightSteps;
 
 	// Noise data
@@ -82,12 +86,18 @@ private:
 	bool showDetailNoiseTexture;
 	bool showPerlinNoiseTexture;
 	bool usePerlinNoise;
-	float shapeNoiseGenTexRes;
-	float detailNoiseGenTexRes;
+	int shapeNoiseGenTexRes;
+	int detailNoiseGenTexRes;
 	float tileVal;
 	float sliceVal;
 	WorleyNoiseShader::WorleyNoiseSettings shapeNoiseSettings;
 	WorleyNoiseShader::WorleyNoiseSettings detailNoiseSettings;
+	float blueNoiseOffsetStrength;
+
+	// Weather Map settings
+	bool showWeatherMap;
+	int weatherMapTexRes;
+	CloudMarcherShader::WeatherMapTextureSettings coverageTexSettings;
 
 	// Light Settings
 	float lightColour[3];

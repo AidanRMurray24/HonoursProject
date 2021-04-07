@@ -26,16 +26,16 @@ void WorleyNoiseShader::setShaderParameters(ID3D11DeviceContext* dc, TextureChan
 
 	switch (channel)
 	{
-	case WorleyNoiseShader::TextureChannel::RED:
+	case TextureChannel::RED:
 		settings = &redChannelSettings;
 		break;
-	case WorleyNoiseShader::TextureChannel::GREEN:
+	case TextureChannel::GREEN:
 		settings = &greenChannelSettings;
 		break;
-	case WorleyNoiseShader::TextureChannel::BLUE:
+	case TextureChannel::BLUE:
 		settings = &blueChannelSettings;
 		break;
-	case WorleyNoiseShader::TextureChannel::ALPHA:
+	case TextureChannel::ALPHA:
 		settings = &alphaChannelSettings;
 		break;
 	default:
@@ -166,16 +166,16 @@ void WorleyNoiseShader::SetNoiseSettings(WorleyNoiseSettings val, TextureChannel
 
 	switch (channel)
 	{
-	case WorleyNoiseShader::TextureChannel::RED:
+	case TextureChannel::RED:
 		settings = &redChannelSettings;
 		break;
-	case WorleyNoiseShader::TextureChannel::GREEN:
+	case TextureChannel::GREEN:
 		settings = &greenChannelSettings;
 		break;
-	case WorleyNoiseShader::TextureChannel::BLUE:
+	case TextureChannel::BLUE:
 		settings = &blueChannelSettings;
 		break;
-	case WorleyNoiseShader::TextureChannel::ALPHA:
+	case TextureChannel::ALPHA:
 		settings = &alphaChannelSettings;
 		break;
 	default:

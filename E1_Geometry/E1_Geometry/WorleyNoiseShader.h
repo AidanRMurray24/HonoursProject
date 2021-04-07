@@ -1,5 +1,6 @@
 #pragma once
 #include "../DXFramework/DXF.h"
+#include "TextureChannel.h"
 
 using namespace std;
 using namespace DirectX;
@@ -7,14 +8,6 @@ using namespace DirectX;
 class WorleyNoiseShader : public BaseShader
 {
 public:
-	enum class TextureChannel
-	{
-		RED = 0,
-		GREEN = 1,
-		BLUE = 2,
-		ALPHA = 3
-	};
-
 	struct WorleyNoiseSettings
 	{
 		int seed = 0;

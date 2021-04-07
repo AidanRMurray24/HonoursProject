@@ -18,6 +18,7 @@ struct Assets
 	class CloudFragShader* cloudFragShader = nullptr;
 	class PerlinNoiseShader* perlinNoiseShader = nullptr;
 	class PerlinWorleyShader* perlinWorleyShader = nullptr;
+	class WeatherMapShader* weatherMapShader = nullptr;
 
 	// Meshes
 	class CubeMesh* cubeMesh = nullptr;
@@ -29,6 +30,7 @@ struct Assets
 	class ID3D11ShaderResourceView* brickTexture = nullptr;
 	class ID3D11ShaderResourceView* terrainColourTexture = nullptr;
 	class ID3D11ShaderResourceView* terrainHeightMapTexture = nullptr;
+	class ID3D11ShaderResourceView* blueNoiseTexture = nullptr;
 
 	void CleanUp()
 	{
@@ -44,6 +46,7 @@ struct Assets
 		CLEAN_POINTER(cloudFragShader);
 		CLEAN_POINTER(perlinNoiseShader);
 		CLEAN_POINTER(perlinWorleyShader);
+		CLEAN_POINTER(weatherMapShader);
 
 		// Meshes
 		CLEAN_POINTER(cubeMesh);

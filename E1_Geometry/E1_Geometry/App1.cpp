@@ -13,6 +13,7 @@
 #include "CloudFragShader.h"
 #include "PerlinNoiseShader.h"
 #include "PerlinWorleyShader.h"
+#include "WeatherMapShader.h"
 
 App1::App1()
 {
@@ -37,15 +38,17 @@ App1::App1()
 	textureGenerated = false;
 	showShapeNoiseTexture = false;
 	showDetailNoiseTexture = false;
-	showPerlinNoiseTexture = true;
+	showPerlinNoiseTexture = false;
 	usePerlinNoise = true;
 	tileVal = 1.0f;
 	sliceVal = 0;
+	blueNoiseOffsetStrength = 6.f;
 
 	// Cloud Settings
-	densityThreshold = 0.6f;
+	globalCoverage = 0.7f;
 	densityMultiplier = 1.0f;
-	densitySteps = 100;
+	densitySteps = 1000;
+	stepSize = 1;
 	shapeNoiseTexOffsetArray[0] = 0;
 	shapeNoiseTexOffsetArray[1] = 0;
 	shapeNoiseTexOffsetArray[2] = 0;
@@ -54,18 +57,24 @@ App1::App1()
 	detailNoiseTexOffsetArray[1] = 0;
 	detailNoiseTexOffsetArray[2] = 0;
 	detailNoiseTexScale = 30.0f;
+	edgeFadePercent = 0.3f;
 
 	// Absorption settings
 	lightAbsTowardsSun = 0.75f;
-	lightAbsThroughCloud = 1.21f;
-	darknessThreshold = 0.15f;
+	lightAbsThroughCloud = 0.75f;
+	cloudBrightness = 0.15f;
 	lightSteps = 8;
 
 	// Light settings
-	lightColour[0] = 1.0f;
-	lightColour[1] = 0.9f;
-	lightColour[2] = 0.8f;
+	lightColour[0] = 1;
+	lightColour[1] = 1;
+	lightColour[2] = 1;
 
+	// Weather map settings
+	showWeatherMap = true;
+	weatherMapTexRes = 128;
+
+	// Terrain settings
 	showTerrain = false;
 }
 
@@ -83,7 +92,8 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	// Initialise Lights
 	light = new Light;
 	light->setPosition(0, 0, 0);
-	light->setDiffuseColour(1.0f, 0.9f, 0.8f, 1.0f);
+	//light->setDiffuseColour(1.0f, 0.9f, 0.8f, 1.0f);
+	light->setDiffuseColour(1.0f, 1, 1, 1.0f);
 	light->setDirection(0.7f, -0.7f, 0.0f);
 
 	LoadAssets(hwnd);
@@ -97,7 +107,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 		shapeNoiseSettings.numCellsC = 15;
 		shapeNoiseSettings.persistence = 0.5f;
 		shapeNoiseSettings.channel = XMFLOAT4(1, 0, 0, 0);
-		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, WorleyNoiseShader::TextureChannel::RED);
+		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, TextureChannel::RED);
 
 		// GREEN
 		shapeNoiseSettings.seed = 23;
@@ -106,7 +116,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 		shapeNoiseSettings.numCellsC = 17;
 		shapeNoiseSettings.persistence = 0.5f;
 		shapeNoiseSettings.channel = XMFLOAT4(0, 1, 0, 0);
-		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, WorleyNoiseShader::TextureChannel::GREEN);
+		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, TextureChannel::GREEN);
 
 		// BLUE
 		shapeNoiseSettings.seed = 456;
@@ -115,7 +125,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 		shapeNoiseSettings.numCellsC = 20;
 		shapeNoiseSettings.persistence = 0.5f;
 		shapeNoiseSettings.channel = XMFLOAT4(0, 0, 1, 0);
-		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, WorleyNoiseShader::TextureChannel::BLUE);
+		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, TextureChannel::BLUE);
 
 		// ALPHA
 		shapeNoiseSettings.seed = 656;
@@ -124,7 +134,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 		shapeNoiseSettings.numCellsC = 60;
 		shapeNoiseSettings.persistence = 0.5f;
 		shapeNoiseSettings.channel = XMFLOAT4(0, 0, 0, 1);
-		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, WorleyNoiseShader::TextureChannel::ALPHA);
+		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, TextureChannel::ALPHA);
 	}
 
 	// Set detail noise settings
@@ -136,7 +146,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 		detailNoiseSettings.numCellsC = 15;
 		detailNoiseSettings.persistence = 0.5f;
 		detailNoiseSettings.channel = XMFLOAT4(1, 0, 0, 0);
-		assets->detailNoiseGenShader->SetNoiseSettings(detailNoiseSettings, WorleyNoiseShader::TextureChannel::RED);
+		assets->detailNoiseGenShader->SetNoiseSettings(detailNoiseSettings, TextureChannel::RED);
 
 		// GREEN
 		detailNoiseSettings.seed = 12;
@@ -145,7 +155,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 		detailNoiseSettings.numCellsC = 20;
 		detailNoiseSettings.persistence = 0.5f;
 		detailNoiseSettings.channel = XMFLOAT4(0, 1, 0, 0);
-		assets->detailNoiseGenShader->SetNoiseSettings(detailNoiseSettings, WorleyNoiseShader::TextureChannel::GREEN);
+		assets->detailNoiseGenShader->SetNoiseSettings(detailNoiseSettings, TextureChannel::GREEN);
 
 		// BLUE
 		detailNoiseSettings.seed = 123;
@@ -154,7 +164,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 		detailNoiseSettings.numCellsC = 60;
 		detailNoiseSettings.persistence = 0.5f;
 		detailNoiseSettings.channel = XMFLOAT4(0, 0, 1, 0);
-		assets->detailNoiseGenShader->SetNoiseSettings(detailNoiseSettings, WorleyNoiseShader::TextureChannel::BLUE);
+		assets->detailNoiseGenShader->SetNoiseSettings(detailNoiseSettings, TextureChannel::BLUE);
 	}
 
 	// Set noise weights for the cloud marcher shader
@@ -236,6 +246,7 @@ bool App1::render()
 	if (!textureGenerated)
 	{
 		textureGenerated = true;
+		GenerateWeatherMap();
 		GenerateNoiseTextures();
 	}
 	GeometryPass();
@@ -248,32 +259,40 @@ bool App1::render()
 	return true;
 }
 
+void App1::GenerateWeatherMap()
+{
+	WeatherMapShader* weatherMapShader = SystemParams::GetInstance().GetAssets().weatherMapShader;
+	weatherMapShader->setShaderParameters(renderer->getDeviceContext());
+	weatherMapShader->compute(renderer->getDeviceContext(), ceil(weatherMapTexRes / 8.0f), ceil(weatherMapTexRes / 8.0f), ceil(weatherMapTexRes / 8.0f));
+	weatherMapShader->unbind(renderer->getDeviceContext());
+}
+
 void App1::GenerateNoiseTextures()
 {
 	// Generate shape noise texture
 	WorleyNoiseShader* worleyNoiseShader = SystemParams::GetInstance().GetAssets().shapeNoiseGenShader;
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::RED);
+	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::RED);
 	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
 	worleyNoiseShader->unbind(renderer->getDeviceContext());
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::GREEN);
+	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::GREEN);
 	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
 	worleyNoiseShader->unbind(renderer->getDeviceContext());
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::BLUE);
+	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::BLUE);
 	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
 	worleyNoiseShader->unbind(renderer->getDeviceContext());
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::ALPHA);
+	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::ALPHA);
 	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
 	worleyNoiseShader->unbind(renderer->getDeviceContext());
 
 	// Generate detail noise texture
 	worleyNoiseShader = SystemParams::GetInstance().GetAssets().detailNoiseGenShader;
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::RED);
+	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::RED);
 	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
 	worleyNoiseShader->unbind(renderer->getDeviceContext());
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::GREEN);
+	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::GREEN);
 	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
 	worleyNoiseShader->unbind(renderer->getDeviceContext());
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), WorleyNoiseShader::TextureChannel::BLUE);
+	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::BLUE);
 	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
 	worleyNoiseShader->unbind(renderer->getDeviceContext());
 
@@ -337,13 +356,13 @@ void App1::CloudMarchPass()
 	// Generate clouds
 	if (usePerlinNoise)
 	{
-		shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->perlinWorleyShader->getSRV(), assets->detailNoiseGenShader->getSRV(), renderer->getProjectionMatrix(), cloudContainer);
+		shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->perlinWorleyShader->getSRV(), assets->detailNoiseGenShader->getSRV(), assets->weatherMapShader->getSRV(), assets->blueNoiseTexture, renderer->getProjectionMatrix(), cloudContainer);
 		shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
 		shader->unbind(renderer->getDeviceContext());
 	}
 	else
 	{
-		shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->shapeNoiseGenShader->getSRV(), assets->detailNoiseGenShader->getSRV(), renderer->getProjectionMatrix(), cloudContainer);
+		shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->shapeNoiseGenShader->getSRV(), assets->detailNoiseGenShader->getSRV(), assets->weatherMapShader->getSRV(), assets->blueNoiseTexture, renderer->getProjectionMatrix(), cloudContainer);
 		shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
 		shader->unbind(renderer->getDeviceContext());
 	}
@@ -422,6 +441,12 @@ void App1::FinalPass()
 		assets->tex3DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->perlinNoiseShader->getSRV(), sliceVal, tileVal);
 		assets->tex3DShader->render(renderer->getDeviceContext(), assets->noiseGenOrthoMesh->getIndexCount());
 	}
+	if (showWeatherMap)
+	{
+		assets->noiseGenOrthoMesh->sendData(renderer->getDeviceContext());
+		assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->weatherMapShader->getSRV(), 0, tileVal);
+		assets->tex2DShader->render(renderer->getDeviceContext(), assets->noiseGenOrthoMesh->getIndexCount());
+	}
 
 	renderer->setZBuffer(true);
 
@@ -472,30 +497,34 @@ void App1::gui()
 		}
 		if (ImGui::CollapsingHeader("Density Settings"))
 		{
-			ImGui::SliderFloat("DensityThreshold", &densityThreshold, 0, 1);
+			ImGui::SliderFloat("Global Coverage", &globalCoverage, 0, 1);
 			ImGui::SliderFloat("DensityMultiplier", &densityMultiplier, 1, 10);
 			ImGui::SliderInt("DensitySteps", &densitySteps, 0, 1000);
+			ImGui::SliderFloat("StepSize", &stepSize, 0, 10);
+			ImGui::SliderFloat("EdgeFadePercent", &edgeFadePercent, 0, 1);
 		}
 	}
 	cloudShader->SetShapeNoiseOffset(shapeNoiseTexOffsetArray[0], shapeNoiseTexOffsetArray[1], shapeNoiseTexOffsetArray[2]);
 	cloudShader->SetShapeNoiseScale(shapeNoiseTexScale);
 	cloudShader->SetDetailNoiseOffset(detailNoiseTexOffsetArray[0], detailNoiseTexOffsetArray[1], detailNoiseTexOffsetArray[2]);
 	cloudShader->SetDetailNoiseScale(detailNoiseTexScale);
-	cloudShader->SetDensityThreshold(densityThreshold);
+	cloudShader->SetDensityThreshold(globalCoverage);
 	cloudShader->SetDensityMultiplier(densityMultiplier);
 	cloudShader->SetDensitySteps(densitySteps);
+	cloudShader->SetStepSize(stepSize);
+	cloudShader->SetEdgeFadePercentage(edgeFadePercent);
 
 	// Absorbtion Settings
 	if (ImGui::CollapsingHeader("Absoption Settings"))
 	{
-		ImGui::SliderFloat("AbsTowardsSun", &lightAbsTowardsSun, 0, 5);
-		ImGui::SliderFloat("AbsThroughCloud", &lightAbsThroughCloud, 0, 5);
-		ImGui::SliderFloat("DarknessThreshold", &darknessThreshold, 0, 1);
+		ImGui::SliderFloat("AbsTowardsSun", &lightAbsTowardsSun, 0, 1);
+		ImGui::SliderFloat("AbsThroughCloud", &lightAbsThroughCloud, 0, 1);
+		ImGui::SliderFloat("CloudBrightness", &cloudBrightness, 0, 1);
 		ImGui::SliderInt("LightSteps", &lightSteps, 0, 100);
 	}
 	cloudShader->SetLightAbsTowardsSun(lightAbsTowardsSun);
 	cloudShader->SetLightAbsThroughCloud(lightAbsThroughCloud);
-	cloudShader->SetDarknessThreshold(darknessThreshold);
+	cloudShader->SetCloudBrightness(cloudBrightness);
 	cloudShader->SetLightMarchSteps(lightSteps);
 
 	// Light Settings
@@ -504,6 +533,21 @@ void App1::gui()
 		ImGui::ColorPicker3("Colour", lightColour);
 		light->setDiffuseColour(lightColour[0], lightColour[1], lightColour[2], 1.0f);
 	}
+
+	// Weather Map settings
+	if (ImGui::CollapsingHeader("Weather Map Settings"))
+	{
+		ImGui::Checkbox("Show Weather Map", &showWeatherMap);
+		ImGui::SliderFloat("CoverageTexScale", &coverageTexSettings.scale, 1, 1000);
+	}
+	cloudShader->SetWeatherMapTexSettings(coverageTexSettings, TextureChannel::RED);
+
+	// Optimisation settings
+	if (ImGui::CollapsingHeader("Optimisation Settings"))
+	{
+		ImGui::SliderFloat("BlueNoise Strength", &blueNoiseOffsetStrength, 0, 10);
+	}
+	cloudShader->SetBlueNoiseStrength(blueNoiseOffsetStrength);
 
 	// Render UI
 	ImGui::Render();
@@ -528,6 +572,7 @@ void App1::LoadAssets(HWND hwnd)
 	assets.cloudFragShader = new CloudFragShader(device, hwnd, screenWidth, screenHeight, camera);
 	assets.perlinNoiseShader = new PerlinNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.perlinWorleyShader = new PerlinWorleyShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
+	assets.weatherMapShader = new WeatherMapShader(device, hwnd, weatherMapTexRes, weatherMapTexRes);
 
 	// Initialise Meshes
 	assets.cubeMesh = new CubeMesh(device, deviceContext);
@@ -539,7 +584,9 @@ void App1::LoadAssets(HWND hwnd)
 	textureMgr->loadTexture(L"brick", L"res/brick1.dds");
 	textureMgr->loadTexture(L"TerrainColour", L"res/TerrainColour.png");
 	textureMgr->loadTexture(L"TerrainHeightMap", L"res/TerrainHeightMap.png");
+	textureMgr->loadTexture(L"BlueNoiseTex", L"res/BlueNoiseTex.png");
 	assets.brickTexture = textureMgr->getTexture(L"brick");
 	assets.terrainColourTexture = textureMgr->getTexture(L"TerrainColour");
 	assets.terrainHeightMapTexture = textureMgr->getTexture(L"TerrainHeightMap");
+	assets.blueNoiseTexture = textureMgr->getTexture(L"BlueNoiseTex");
 }

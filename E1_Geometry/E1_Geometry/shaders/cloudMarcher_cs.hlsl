@@ -5,6 +5,8 @@ Texture2D<float4> Source : register(t0);
 Texture2D<float4> depthMap : register(t1);
 Texture3D<float4> shapeNoiseTex : register(t2);
 Texture3D<float4> detailNoiseTex : register(t3);
+Texture2D<float4> weatherMapTex : register(t4);
+Texture2D<float4> blueNoiseTex : register(t5);
 
 cbuffer CameraBuffer : register(b0)
 {
@@ -17,6 +19,8 @@ cbuffer ContainerInfoBuffer : register(b1)
 {
     float4 containerBoundsMin;
     float4 containerBoundsMax;
+    float edgeFadePercentage;
+    float3 padding2;
 }
 
 cbuffer CloudSettingsBuffer : register(b2)
@@ -25,7 +29,9 @@ cbuffer CloudSettingsBuffer : register(b2)
     float4 shapeNoiseWeights;
     float4 detailNoiseTexTransform; // Offset = (x,y,z), Scale = w
     float4 detailNoiseWeights;
-    float4 densitySettings; // Density Threshold = x, Density Multiplier = y, Density Steps = z
+    float4 densitySettings; // Global coverage = x, Density Multiplier = y, Density Steps = z, Step Size = w
+    float blueNoiseStrength;
+    float3 padding3;
 }
 
 cbuffer LightBuffer : register(b3)
@@ -33,8 +39,14 @@ cbuffer LightBuffer : register(b3)
     float4 lightDir;
     float4 lightPos;
     float4 lightDiffuse;
-    float4 lightAbsorptionData; // Absorption to sun = x, Absorption through cloud = y, Darkness Threshold = z, Marching steps = w
+    float4 lightAbsorptionData; // Absorption to sun = x, Absorption through cloud = y, Cloud Brightness = z, Marching steps = w
 }
+
+cbuffer WeatherMapBuffer : register(b4)
+{
+    float4 coverageTexTransform; // Offset = (x,y,z), Scale = w
+    float4 weatherMapIntensities; // Channel intensities
+};
 
 struct Ray
 {
@@ -121,7 +133,7 @@ float remap(float v, float minOld, float maxOld, float minNew, float maxNew)
 
 float SampleDensity(float3 pos)
 {
-    float densityThreshold = densitySettings.x;
+    float globalCoverage = densitySettings.x;
     float densityMultiplier = densitySettings.y;
 
     // Calculate the uvw point of the texture to sample using the current position in space, applying the scale and adding on the offset
@@ -129,27 +141,30 @@ float SampleDensity(float3 pos)
     float3 shapeSamplePos = uvw / shapeNoiseTexTransform.w + shapeNoiseTexTransform.xyz;
 
     // Calculate falloff at along x/z edges of the cloud container
-    const float containerEdgeFadeDst = 50;
-    float dstFromEdgeX = min(containerEdgeFadeDst, min(pos.x - containerBoundsMin.x, containerBoundsMax.x - pos.x));
-    float dstFromEdgeZ = min(containerEdgeFadeDst, min(pos.z - containerBoundsMin.z, containerBoundsMax.z - pos.z));
-    float edgeWeight = min(dstFromEdgeZ, dstFromEdgeX) / containerEdgeFadeDst;
+    const float containerEdgeFadeDst = (containerBoundsMax - containerBoundsMin).x * edgeFadePercentage;
+    float dstToEdgeX = min(containerEdgeFadeDst, min(pos.x - containerBoundsMin.x, containerBoundsMax.x - pos.x));
+    float dstToEdgeZ = min(containerEdgeFadeDst, min(pos.z - containerBoundsMin.z, containerBoundsMax.z - pos.z));
+    float edgeFade = min(dstToEdgeX, dstToEdgeZ) / containerEdgeFadeDst;
 
-    // Calculate height gradient from weather map
+    // Calculate how high the clouds render
+    float heightGradient = 0;
     float3 size = containerBoundsMax - containerBoundsMin;
+    float heightPercent = (pos.y - containerBoundsMin.y) / size.y;
     float gMin = .2;
     float gMax = .7;
-    float heightPercent = (pos.y - containerBoundsMin.y) / size.y;
-    float heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(remap(heightPercent, 1, gMax, 0, 1));
-    heightGradient *= edgeWeight;
+    heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(remap(heightPercent, 1, gMax, 0, 1));
+    heightGradient *= edgeFade;
 
     // Sample the shape noise texture at the current point
     float4 shapeNoise = shapeNoiseTex.SampleLevel(sampler0, shapeSamplePos, 0);
     float4 normalisedWeights = normalize(shapeNoiseWeights);
-    float shapeFBM = dot(shapeNoise, normalisedWeights) * heightGradient;
+    float shapeFBM = dot(shapeNoise, normalisedWeights) * heightGradient * (1 - heightPercent); // Multiplied by 1 - height percent to make the bottom of the clouds more wispy looking
 
     // Calculate the density of the shape noise
-    float densityOffset = -densityThreshold;
-    float shapeDensity = shapeFBM - densityThreshold;
+    float2 weatherMapSamplePos = pos.zx / coverageTexTransform.w + coverageTexTransform.xy;
+    float weatherMapCoverage = weatherMapTex.SampleLevel(sampler0, weatherMapSamplePos, 0).r;
+    float coverage = saturate( globalCoverage + weatherMapCoverage / 2);
+    float shapeDensity = shapeFBM - (1 - coverage);
 
     // If the shape density is not greater than 0 there is no need to calculate the details
     if (shapeDensity > 0)
@@ -160,13 +175,42 @@ float SampleDensity(float3 pos)
         float3 normalizedDetailWeights = normalize(detailNoiseWeights.xyz);
         float detailFBM = dot(detailNoise, normalizedDetailWeights);
 
-        float oneMinusShape = 1 - shapeDensity;
-        float detailErodeWeight = oneMinusShape * oneMinusShape * oneMinusShape;
-        float cloudDensity = shapeDensity - (1 - detailFBM) * detailErodeWeight;
+        // Use the density of the detail noise to erode parts of the shape noise making them more wispy around the edges
+        float detailDensity = 1 - shapeDensity;
+        float erosionWeight = detailDensity * detailDensity * detailDensity;
+        float cloudDensity = shapeDensity - (detailFBM * erosionWeight);
 
         return cloudDensity * densityMultiplier;
     }
     return 0;
+}
+
+float BeersLaw(float depth)
+{
+    return exp(-depth);
+}
+
+float PowderEffect(float depth)
+{
+    return (1.0f - exp(-depth));
+}
+
+float BeerPowderEffect(float depth, float strength = 1.0f)
+{
+    return strength * BeersLaw(depth) * PowderEffect(depth * 2);
+}
+
+float HenyeyGreenstein(float a, float g)
+{
+    float g2 = g * g;
+    return (1 - g2) / (4 * 3.1415 * pow(1 + g2 - 2 * g * (a), 1.5));
+}
+
+float PhaseFunction(float a)
+{
+    float forwardScattering = 0.857f, backScattering = 0.278f, baseBrightness = 1.f, phaseFactor = 0.385, blendFactor = .5f;
+    float hgBlend = HenyeyGreenstein(a, forwardScattering) * (1 - blendFactor) + HenyeyGreenstein(a, -backScattering) * blendFactor;
+    return baseBrightness + hgBlend * phaseFactor;
 }
 
 float LightMarch(float3 pos)
@@ -177,20 +221,25 @@ float LightMarch(float3 pos)
 
     // March to the light
     int lightSteps = lightAbsorptionData.w;
-    float stepSize = dstInsideBox / lightSteps;
+    float stepSize = densitySettings.w;
     float totalDensity = 0;
-    for (int i = 0; i < lightSteps; i++)
+    float dstTravelled = 0;
+    int stepCounter = 0;
+    do
     {
         // Sample the density at the current step
         pos += dirToLight * stepSize;
         totalDensity += max(0, SampleDensity(pos) * stepSize);
-    }
+        dstTravelled += stepSize;
+        stepCounter++;
+    } 
+    while (dstTravelled < dstInsideBox && stepCounter < lightSteps); // Exit if the ray is travelling outside the box or the number of steps is past the max
 
-    // Use beers law to calculate the transmittance of the light as it passes through the container
+    // Use the beer-powder effect to calculate the transmittance of the light as it passes through the container
     float lightAbsTowardSun = lightAbsorptionData.x;
-    float darknessThreshold = lightAbsorptionData.z;
-    float transmittance = exp(-totalDensity * lightAbsTowardSun);
-    return darknessThreshold + transmittance * (1 - darknessThreshold);
+    float cloudBrightness = lightAbsorptionData.z;
+    float transmittance = BeerPowderEffect(totalDensity * lightAbsTowardSun, 1.0f);
+    return saturate(cloudBrightness + transmittance * (1 - cloudBrightness));
 }
 
 [numthreads(8, 8, 1)]
@@ -210,26 +259,28 @@ void main( int3 id : SV_DispatchThreadID )
     float3 ro = cameraRay.origin;
     float3 rd = cameraRay.direction;
 
-    // Calculate the depth
-    float3 viewVector = GetViewVector(uv);
-    //float depth = depthMap.SampleLevel(sampler0, id.xy / resolution, 0) /** length(viewVector)*/;
-    float depth = depthMap[id.xy] /** length(viewVector)*/;
-    float linearDepth = LinearEyeDepth(depth) * length(viewVector);
-
     // Get the ray distance information from the box
     float2 rayBoxInfo = RayBoxDst(containerBoundsMin.xyz, containerBoundsMax.xyz, ro, rd);
     float dstToBox = rayBoxInfo.x;
     float dstInsideBox = rayBoxInfo.y;
 
+    // Phase function makes clouds brighter when looking through towards the sun
+    float phaseVal = PhaseFunction(dot(rd, -lightDir));
+
+    // Sample the blue noise to offset the distance travelled by the ray to reduce artifacting
+    float dstOffset = blueNoiseTex.SampleLevel(sampler0, uv, 0).r;
+    dstOffset *= blueNoiseStrength;
+
     // Ray marching
     int numSteps = densitySettings.z;
-    float dstTravelled = 0.0f;
+    float dstTravelled = dstOffset;
     float transmittance = 1;
-    float3 lightEnergy = 0;
+    float lightEnergy = 0;
     float lightAbsThroughCloud = lightAbsorptionData.y;
-    float stepSize = dstInsideBox / numSteps;   // Only march within the container
+    float stepSize = densitySettings.w;
     float3 entryPoint = ro + rd * dstToBox;     // Point of intersection with the cloud container
-    for (int i = 0; i < numSteps; i++)
+    int stepCounter = 0;
+    do
     {
         // March ray inside the box
         float3 rayPos = entryPoint + rd * dstTravelled;
@@ -238,28 +289,25 @@ void main( int3 id : SV_DispatchThreadID )
         // Only update the values if the density sampled is greater than zero
         if (density > 0)
         {
-            float lightTransmittance = LightMarch(rayPos);
-            lightEnergy += density * stepSize * transmittance * lightTransmittance;
-            transmittance *= exp(-density * stepSize * lightAbsThroughCloud);
+            // Add on the light energy transmittence at the current sample point
+            float lightTransmittance = LightMarch(rayPos) * phaseVal;
+            lightEnergy += lightTransmittance * transmittance * density * stepSize;
+
+            // Use beers law instead of beer-powder here as beer-powder is only applied when marching towards the light
+            transmittance *= BeersLaw(density * lightAbsThroughCloud * stepSize);
 
             // If the transmittance is very low, smapling won't effect much, so break
             if (transmittance < 0.01)
                 break;
         }
 
+        // Increment the travel distance and the step counter
         dstTravelled += stepSize;
-    }
-
-    //// Only shade black if inside the box
-    //bool rayHitBox = dstInsideBox > 0 && dstToBox < linearDepth;
-    //if (rayHitBox)
-    //{
-    //    col = 0;
-    //    //col = shapeNoiseTex.SampleLevel(sampler0, pNear / 10, 0);
-    //}
+        stepCounter++;
+    } 
+    while (dstTravelled < dstInsideBox && stepCounter < numSteps);  // Exit if the ray is travelling outside the box or the number of steps is past the max
 
     // Calculate the final colour of the clouds
-    float4 cloudCol = lightDiffuse * float4(lightEnergy, 0);
-    col = col * transmittance + cloudCol;
-    Result[id.xy] = col;
+    col = (col * transmittance) + (lightDiffuse * lightEnergy);
+    Result[id.xy] = saturate(col);
 }

@@ -1,4 +1,5 @@
 #include "CloudMarcherShader.h"
+#include "BufferCreationHelper.h"
 
 CloudMarcherShader::CloudMarcherShader(ID3D11Device* device, HWND hwnd, int w, int h, Camera* _cam, Light* _mainLight) : BaseShader(device, hwnd)
 {
@@ -8,10 +9,12 @@ CloudMarcherShader::CloudMarcherShader(ID3D11Device* device, HWND hwnd, int w, i
 	screenHeight = h;
 	cam = _cam;
 	mainLight = _mainLight;
-	cloudSettings.densitySettings = XMFLOAT4(0.6f, 1, 100, 0);
+	cloudSettings.densitySettings = XMFLOAT4(0.6f, 1, 100, 1);
 	cloudSettings.shapeNoiseTexTransform = XMFLOAT4(0, 0, 0, 40);
 	cloudSettings.detailNoiseTexTransform = XMFLOAT4(0, 0, 0, 40);
+	cloudSettings.blueNoiseStrength = 3.f;
 	absorptionData = XMFLOAT4(0.75f, 1.21f, 0.15f, 8.0f);
+	edgeFadePercent = 0.3f;
 
 	initShader(L"cloudMarcher_cs.cso", NULL);
 }
@@ -20,7 +23,7 @@ CloudMarcherShader::~CloudMarcherShader()
 {
 }
 
-void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex,  const XMMATRIX& projectionMatrix, CloudContainer* container)
+void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex, ID3D11ShaderResourceView* weatherMap, ID3D11ShaderResourceView* blueNoise, const XMMATRIX& projectionMatrix, CloudContainer* container)
 {
 	// Pass in buffer data
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -45,6 +48,7 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	containerPtr = (ContainerInfoBufferType*)mappedResource.pData;
 	containerPtr->boundsMin = XMFLOAT4(container->GetBoundsMin().x, container->GetBoundsMin().y, container->GetBoundsMin().z, 0);
 	containerPtr->boundsMax = XMFLOAT4(container->GetBoundsMax().x, container->GetBoundsMax().y, container->GetBoundsMax().z, 0);
+	containerPtr->edgeFadePercentage = edgeFadePercent;
 	dc->Unmap(containerInfoBuffer, 0);
 
 	// Fill cloud settings buffer
@@ -56,6 +60,7 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	cloudSettingsPtr->detailNoiseTexTransform = cloudSettings.detailNoiseTexTransform;
 	cloudSettingsPtr->detailNoiseWeights = cloudSettings.detailNoiseWeights;
 	cloudSettingsPtr->densitySettings = cloudSettings.densitySettings;
+	cloudSettingsPtr->blueNoiseStrength = cloudSettings.blueNoiseStrength;
 	dc->Unmap(cloudSettingsBuffer, 0);
 
 	// Fill light buffer
@@ -67,18 +72,29 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	lightPtr->colour = XMFLOAT4(mainLight->getDiffuseColour().x, mainLight->getDiffuseColour().y, mainLight->getDiffuseColour().z, 0);
 	lightPtr->absorptionData = absorptionData;
 	dc->Unmap(lightBuffer, 0);
+
+	// Fill weather buffer
+	WeatherMapBufferType* weatherPtr;
+	dc->Map(weatherBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
+	weatherPtr = (WeatherMapBufferType*)mappedResource.pData;
+	weatherPtr->coverageTexTransform = XMFLOAT4(weatherRedChannel.offset.x, weatherRedChannel.offset.y, weatherRedChannel.offset.z, weatherRedChannel.scale);
+	weatherPtr->weatherMapIntensities = XMFLOAT4(weatherRedChannel.intensity, 0, 0, 0);
+	dc->Unmap(weatherBuffer, 0);
 	
-	// Set buffer data to sahder
+	// Set buffer data to shader
 	dc->CSSetConstantBuffers(0, 1, &cameraBuffer);
 	dc->CSSetConstantBuffers(1, 1, &containerInfoBuffer);
 	dc->CSSetConstantBuffers(2, 1, &cloudSettingsBuffer);
 	dc->CSSetConstantBuffers(3, 1, &lightBuffer);
+	dc->CSSetConstantBuffers(4, 1, &weatherBuffer);
 
 	// Pass the source texture and the texture to be modified to the shader
 	dc->CSSetShaderResources(0, 1, &sourceTexture);
 	dc->CSSetShaderResources(1, 1, &depthMap);
 	dc->CSSetShaderResources(2, 1, &shapeNoiseTex);
 	dc->CSSetShaderResources(3, 1, &detailNoiseTex);
+	dc->CSSetShaderResources(4, 1, &weatherMap);
+	dc->CSSetShaderResources(5, 1, &blueNoise);
 	dc->CSSetUnorderedAccessViews(0, 1, &uavTexAccess, 0);
 
 	// Set the sampler inside the shader
@@ -128,6 +144,9 @@ void CloudMarcherShader::unbind(ID3D11DeviceContext* dc)
 	dc->CSSetShaderResources(0, 1, nullSRV);
 	dc->CSSetShaderResources(1, 1, nullSRV);
 	dc->CSSetShaderResources(2, 1, nullSRV);
+	dc->CSSetShaderResources(3, 1, nullSRV);
+	dc->CSSetShaderResources(4, 1, nullSRV);
+	dc->CSSetShaderResources(5, 1, nullSRV);
 
 	// Unbind output from compute shader
 	ID3D11UnorderedAccessView* nullUAV[] = { NULL };
@@ -135,6 +154,24 @@ void CloudMarcherShader::unbind(ID3D11DeviceContext* dc)
 
 	// Disable Compute Shader
 	dc->CSSetShader(nullptr, nullptr, 0);
+}
+
+void CloudMarcherShader::SetWeatherMapTexSettings(WeatherMapTextureSettings settings, TextureChannel channel)
+{
+	switch (channel)
+	{
+	case TextureChannel::RED:
+		weatherRedChannel = settings;
+		break;
+	case TextureChannel::GREEN:
+		break;
+	case TextureChannel::BLUE:
+		break;
+	case TextureChannel::ALPHA:
+		break;
+	default:
+		break;
+	}
 }
 
 void CloudMarcherShader::initShader(const wchar_t* cfile, const wchar_t* blank)
@@ -148,10 +185,11 @@ void CloudMarcherShader::initShader(const wchar_t* cfile, const wchar_t* blank)
 void CloudMarcherShader::InitBuffers()
 {
 	// Create the constant buffers
-	CreateConstantBuffer(renderer, sizeof(CameraBufferType), &cameraBuffer);
-	CreateConstantBuffer(renderer, sizeof(ContainerInfoBufferType), &containerInfoBuffer);
-	CreateConstantBuffer(renderer, sizeof(CloudSettingsBufferType), &cloudSettingsBuffer);
-	CreateConstantBuffer(renderer, sizeof(LightBufferType), &lightBuffer);
+	BufferCreationHelper::CreateConstantBuffer(renderer, sizeof(CameraBufferType), &cameraBuffer);
+	BufferCreationHelper::CreateConstantBuffer(renderer, sizeof(ContainerInfoBufferType), &containerInfoBuffer);
+	BufferCreationHelper::CreateConstantBuffer(renderer, sizeof(CloudSettingsBufferType), &cloudSettingsBuffer);
+	BufferCreationHelper::CreateConstantBuffer(renderer, sizeof(LightBufferType), &lightBuffer);
+	BufferCreationHelper::CreateConstantBuffer(renderer, sizeof(WeatherMapBufferType), &weatherBuffer);
 
 	// Create a texture sampler state description.
 	D3D11_SAMPLER_DESC samplerDesc;
@@ -165,16 +203,4 @@ void CloudMarcherShader::InitBuffers()
 	samplerDesc.MinLOD = 0;
 	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 	renderer->CreateSamplerState(&samplerDesc, &sampleState);
-}
-
-void CloudMarcherShader::CreateConstantBuffer(ID3D11Device* renderer, UINT uElementSize, ID3D11Buffer** ppBufOut)
-{
-	D3D11_BUFFER_DESC desc;
-	desc.Usage = D3D11_USAGE_DYNAMIC;
-	desc.ByteWidth = uElementSize;
-	desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	desc.MiscFlags = 0;
-	desc.StructureByteStride = 0;
-	renderer->CreateBuffer(&desc, NULL, ppBufOut);
 }

@@ -11,7 +11,7 @@ CloudContainer::CloudContainer() : SceneObject()
 {
 	// Set default values
 	SetPosition(50, 20, 50);
-	SetScale(150, 20, 150);
+	SetScale(150, 50, 150);
 	SetMesh(SystemParams::GetInstance().GetAssets().cubeMesh);
 
 	boundsMin = XMFLOAT3(GetPosition().x - GetScale().x, GetPosition().y - GetScale().y, GetPosition().z - GetScale().z);

@@ -1,11 +1,20 @@
 #pragma once
 #include "../DXFramework/DXF.h"
 #include "CloudContainer.h"
+#include "TextureChannel.h"
 
 using namespace DirectX;
 
 class CloudMarcherShader : public BaseShader
 {
+public:
+	struct WeatherMapTextureSettings
+	{
+		XMFLOAT3 offset = XMFLOAT3(0, 0, 0);
+		float scale = 800;
+		float intensity = 0.5f;
+	};
+
 private:
 	struct CameraBufferType
 	{
@@ -18,6 +27,8 @@ private:
 	{
 		XMFLOAT4 boundsMin;
 		XMFLOAT4 boundsMax;
+		float edgeFadePercentage;
+		XMFLOAT3 padding;
 	};
 
 	struct CloudSettingsBufferType
@@ -26,7 +37,9 @@ private:
 		XMFLOAT4 shapeNoiseWeights;
 		XMFLOAT4 detailNoiseTexTransform; // Offset = (x,y,z), Scale = w
 		XMFLOAT4 detailNoiseWeights;
-		XMFLOAT4 densitySettings; // Density Threshold = x, Density Multiplier = y, Density Steps = z
+		XMFLOAT4 densitySettings; // Global Coverage = x, Density Multiplier = y, Density Steps = z, Step Size = w
+		float blueNoiseStrength;
+		XMFLOAT3 padding;
 	};
 
 	struct LightBufferType
@@ -34,14 +47,20 @@ private:
 		XMFLOAT4 direction;
 		XMFLOAT4 position;
 		XMFLOAT4 colour;
-		XMFLOAT4 absorptionData; // Absorption to sun = x, Absorption through cloud = y, Darkness Threshold = z, Marching steps = w
+		XMFLOAT4 absorptionData; // Absorption to sun = x, Absorption through cloud = y, Cloud Brightness = z, Marching steps = w
+	};
+
+	struct WeatherMapBufferType
+	{
+		XMFLOAT4 coverageTexTransform; // Offset = (x,y,z), Scale = w
+		XMFLOAT4 weatherMapIntensities; // Channel intensities
 	};
 
 public:
 	CloudMarcherShader(ID3D11Device* device, HWND hwnd, int _screenWidth, int _screenHeight, Camera* _cam, Light* _mainLight);
 	~CloudMarcherShader();
 
-	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex, const XMMATRIX& projectionMatrix, CloudContainer* container);
+	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex, ID3D11ShaderResourceView* weatherMap, ID3D11ShaderResourceView* blueNoise, const XMMATRIX& projectionMatrix, CloudContainer* container);
 	void createGPUViews();
 	void unbind(ID3D11DeviceContext* dc);
 	inline ID3D11ShaderResourceView* getSRV() { return srvTexOutput; }
@@ -50,6 +69,7 @@ public:
 	inline void SetDensityThreshold(float val) { cloudSettings.densitySettings.x = val; }
 	inline void SetDensityMultiplier(float val) { cloudSettings.densitySettings.y = val; }
 	inline void SetDensitySteps(int val) { cloudSettings.densitySettings.z = val; }
+	inline void SetStepSize(float val) { cloudSettings.densitySettings.w = val; }
 	inline void SetShapeNoiseOffset(XMFLOAT3 val) 
 	{
 		cloudSettings.shapeNoiseTexTransform.x = val.x;
@@ -78,15 +98,17 @@ public:
 	inline void SetDetailNoiseScale(float val) { cloudSettings.detailNoiseTexTransform.w = val; }
 	inline void SetLightAbsTowardsSun(float val) { absorptionData.x = val; }
 	inline void SetLightAbsThroughCloud(float val) { absorptionData.y = val; }
-	inline void SetDarknessThreshold(float val) { absorptionData.z = val; }
+	inline void SetCloudBrightness(float val) { absorptionData.z = val; }
 	inline void SetLightMarchSteps(int val) { absorptionData.w = val; }
 	inline void SetShapeNoiseWeights(XMFLOAT4 val) { cloudSettings.shapeNoiseWeights = val; }
 	inline void SetDetailNoiseWeights(XMFLOAT4 val) { cloudSettings.detailNoiseWeights = val; }
+	inline void SetEdgeFadePercentage(float val) { edgeFadePercent = val; }
+	void SetWeatherMapTexSettings(WeatherMapTextureSettings settings, TextureChannel channel);
+	inline void SetBlueNoiseStrength(float val) { cloudSettings.blueNoiseStrength = val; }
 
 private:
 	void initShader(const wchar_t* cfile, const wchar_t* blank);
 	void InitBuffers();
-	void CreateConstantBuffer(ID3D11Device* renderer, UINT uElementSize, ID3D11Buffer** ppBufOut);
 
 	// Views
 	ID3D11ShaderResourceView* srvTexOutput;
@@ -100,6 +122,7 @@ private:
 	ID3D11Buffer* containerInfoBuffer;
 	ID3D11Buffer* cloudSettingsBuffer;
 	ID3D11Buffer* lightBuffer;
+	ID3D11Buffer* weatherBuffer;
 
 	// Samplers
 	ID3D11SamplerState* sampleState;
@@ -107,6 +130,7 @@ private:
 	// Data
 	CloudSettingsBufferType cloudSettings;
 	XMFLOAT4 absorptionData;
+	float edgeFadePercent;
 
 	// Screen dimentions
 	int screenWidth;
@@ -115,5 +139,8 @@ private:
 	// Scene Info
 	Camera* cam;
 	Light* mainLight;
+
+	// Weather Map Settings
+	WeatherMapTextureSettings weatherRedChannel;
 };
 
