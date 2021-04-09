@@ -28,9 +28,11 @@ App1::App1()
 	light = nullptr;
 
 	// Timers
-	noiseTimer = nullptr;
 	elapsedTime = 0;
 	timetaken = 9;
+	cloudMarcherShaderTimer = nullptr;
+	recordTimeTaken = false;
+	isTimeRecorded = false;
 
 	// Noise data
 	shapeNoiseGenTexRes = 128;
@@ -63,7 +65,7 @@ App1::App1()
 	lightAbsTowardsSun = 0.75f;
 	lightAbsThroughCloud = 0.75f;
 	cloudBrightness = 0.15f;
-	lightSteps = 8;
+	lightSteps = 4;
 
 	// Light settings
 	lightColour[0] = 1;
@@ -71,7 +73,7 @@ App1::App1()
 	lightColour[2] = 1;
 
 	// Weather map settings
-	showWeatherMap = true;
+	showWeatherMap = false;
 	weatherMapTexRes = 128;
 
 	// Terrain settings
@@ -172,7 +174,7 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	assets->cloudMarcherShader->SetDetailNoiseWeights(XMFLOAT4(0.625f, 0.25f, 0.125f, 0.f));
 
 	// Initialise timers
-	noiseTimer = new GPUTimer(renderer->getDevice(), renderer->getDeviceContext());
+	cloudMarcherShaderTimer = new GPUTimer(renderer->getDevice(), renderer->getDeviceContext());
 
 	// Initialise Render Textures
 	sceneRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 1000.f);
@@ -200,7 +202,7 @@ App1::~App1()
 	CLEAN_POINTER(sceneDepthRT);
 
 	// Timers
-	CLEAN_POINTER(noiseTimer);
+	CLEAN_POINTER(cloudMarcherShaderTimer);
 
 	// Scene Objects
 	for (SceneObject* s : sceneObjects)
@@ -229,12 +231,16 @@ bool App1::frame()
 		return false;
 	}
 
-	// Re-calculate compute time every 5 seconds
-	elapsedTime += timer->getTime();
-	if (elapsedTime > 1)
+	// Record the compute time of the cloud marcher shader
+	if (isTimeRecorded)
 	{
-		elapsedTime = 0;
-		timetaken = noiseTimer->GetTimeTaken();
+		elapsedTime += timer->getTime();
+		if (elapsedTime > 0.5f)
+		{
+			elapsedTime = 0;
+			isTimeRecorded = false;
+			timetaken = cloudMarcherShaderTimer->GetTimeTaken();
+		}
 	}
 
 	return true;
@@ -357,14 +363,32 @@ void App1::CloudMarchPass()
 	if (usePerlinNoise)
 	{
 		shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->perlinWorleyShader->getSRV(), assets->detailNoiseGenShader->getSRV(), assets->weatherMapShader->getSRV(), assets->blueNoiseTexture, renderer->getProjectionMatrix(), cloudContainer);
+		
+		if (recordTimeTaken)
+			cloudMarcherShaderTimer->StartTimer();
 		shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
 		shader->unbind(renderer->getDeviceContext());
+		if (recordTimeTaken)
+		{
+			cloudMarcherShaderTimer->StopTimer();
+			recordTimeTaken = false;
+			isTimeRecorded = true;
+		}
 	}
 	else
 	{
 		shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->shapeNoiseGenShader->getSRV(), assets->detailNoiseGenShader->getSRV(), assets->weatherMapShader->getSRV(), assets->blueNoiseTexture, renderer->getProjectionMatrix(), cloudContainer);
+		
+		if (recordTimeTaken)
+			cloudMarcherShaderTimer->StartTimer();
 		shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
 		shader->unbind(renderer->getDeviceContext());
+		if (recordTimeTaken)
+		{
+			cloudMarcherShaderTimer->StopTimer();
+			recordTimeTaken = false;
+			isTimeRecorded = true;
+		}
 	}
 }
 
@@ -472,7 +496,6 @@ void App1::gui()
 	// Noise settings
 	if (ImGui::CollapsingHeader("Noise Settings"))
 	{
-		ImGui::Text("Noise Compute-time(ms): %.5f", timetaken * 1000);
 		ImGui::Checkbox("ShowShapeNoiseTexture", &showShapeNoiseTexture);
 		ImGui::Checkbox("ShowDetailNoiseTexture", &showDetailNoiseTexture);
 		ImGui::Checkbox("ShowPerlinNoiseTexture", &showPerlinNoiseTexture);
@@ -503,6 +526,14 @@ void App1::gui()
 			ImGui::SliderFloat("StepSize", &stepSize, 0, 10);
 			ImGui::SliderFloat("EdgeFadePercent", &edgeFadePercent, 0, 1);
 		}
+		if (ImGui::CollapsingHeader("Optimisation Settings"))
+		{
+			ImGui::SliderFloat("BlueNoise Strength", &blueNoiseOffsetStrength, 0, 10);
+			if (ImGui::Button("Record Compute Time"))
+				recordTimeTaken = true;
+			ImGui::Text("Compute-time(ms): %.5f", timetaken * 1000);
+		}
+		cloudShader->SetBlueNoiseStrength(blueNoiseOffsetStrength);
 	}
 	cloudShader->SetShapeNoiseOffset(shapeNoiseTexOffsetArray[0], shapeNoiseTexOffsetArray[1], shapeNoiseTexOffsetArray[2]);
 	cloudShader->SetShapeNoiseScale(shapeNoiseTexScale);
@@ -541,13 +572,6 @@ void App1::gui()
 		ImGui::SliderFloat("CoverageTexScale", &coverageTexSettings.scale, 1, 1000);
 	}
 	cloudShader->SetWeatherMapTexSettings(coverageTexSettings, TextureChannel::RED);
-
-	// Optimisation settings
-	if (ImGui::CollapsingHeader("Optimisation Settings"))
-	{
-		ImGui::SliderFloat("BlueNoise Strength", &blueNoiseOffsetStrength, 0, 10);
-	}
-	cloudShader->SetBlueNoiseStrength(blueNoiseOffsetStrength);
 
 	// Render UI
 	ImGui::Render();

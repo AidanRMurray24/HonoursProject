@@ -149,7 +149,9 @@ float SampleDensity(float3 pos)
     // Calculate how high the clouds render
     float heightGradient = 0;
     float3 size = containerBoundsMax - containerBoundsMin;
-    float heightPercent = (pos.y - containerBoundsMin.y) / size.y;
+    /*float2 weatherMapSamplePos = pos.zx / coverageTexTransform.w + coverageTexTransform.xy;
+    float weatherMapCoverage = weatherMapTex.SampleLevel(sampler0, weatherMapSamplePos, 0).r;*/
+    float heightPercent = ((pos.y - containerBoundsMin.y) / size.y) /** weatherMapCoverage*/;
     float gMin = .2;
     float gMax = .7;
     heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(remap(heightPercent, 1, gMax, 0, 1));
@@ -161,10 +163,7 @@ float SampleDensity(float3 pos)
     float shapeFBM = dot(shapeNoise, normalisedWeights) * heightGradient * (1 - heightPercent); // Multiplied by 1 - height percent to make the bottom of the clouds more wispy looking
 
     // Calculate the density of the shape noise
-    float2 weatherMapSamplePos = pos.zx / coverageTexTransform.w + coverageTexTransform.xy;
-    float weatherMapCoverage = weatherMapTex.SampleLevel(sampler0, weatherMapSamplePos, 0).r;
-    float coverage = saturate( globalCoverage + weatherMapCoverage / 2);
-    float shapeDensity = shapeFBM - (1 - coverage);
+    float shapeDensity = shapeFBM - (1 - globalCoverage);
 
     // If the shape density is not greater than 0 there is no need to calculate the details
     if (shapeDensity > 0)
@@ -238,7 +237,8 @@ float LightMarch(float3 pos)
     // Use the beer-powder effect to calculate the transmittance of the light as it passes through the container
     float lightAbsTowardSun = lightAbsorptionData.x;
     float cloudBrightness = lightAbsorptionData.z;
-    float transmittance = BeerPowderEffect(totalDensity * lightAbsTowardSun, 1.0f);
+    //float transmittance = BeerPowderEffect(totalDensity * lightAbsTowardSun, 1.0f);
+    float transmittance = BeersLaw(totalDensity * lightAbsTowardSun);
     return saturate(cloudBrightness + transmittance * (1 - cloudBrightness));
 }
 

@@ -49,9 +49,11 @@ private:
 	Light* light;
 
 	// Timers
-	GPUTimer* noiseTimer;
+	GPUTimer* cloudMarcherShaderTimer;
 	float elapsedTime;
 	double timetaken = 9;
+	bool recordTimeTaken;
+	bool isTimeRecorded;
 
 	// Scene objects
 	std::vector<SceneObject*> sceneObjects;
