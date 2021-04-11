@@ -50,7 +50,7 @@ App1::App1()
 	globalCoverage = 0.7f;
 	densityMultiplier = 1.0f;
 	densitySteps = 1000;
-	stepSize = 1;
+	stepSize = 2.5;
 	shapeNoiseTexOffsetArray[0] = 0;
 	shapeNoiseTexOffsetArray[1] = 0;
 	shapeNoiseTexOffsetArray[2] = 0;
@@ -60,10 +60,11 @@ App1::App1()
 	detailNoiseTexOffsetArray[2] = 0;
 	detailNoiseTexScale = 30.0f;
 	edgeFadePercent = 0.3f;
+	reprojectionFrameCounter = 1;
 
 	// Absorption settings
-	lightAbsTowardsSun = 0.75f;
-	lightAbsThroughCloud = 0.75f;
+	lightAbsTowardsSun = 0.84f;
+	lightAbsThroughCloud = 0.84f;
 	cloudBrightness = 0.15f;
 	lightSteps = 4;
 
@@ -243,6 +244,11 @@ bool App1::frame()
 		}
 	}
 
+	// Increment the reprojection frame counter and keep it between 0 and 15
+	reprojectionFrameCounter += 1;
+	reprojectionFrameCounter %= 16;
+	assets->cloudMarcherShader->SetReprojectionFrame(reprojectionFrameCounter);
+
 	return true;
 }
 
@@ -256,10 +262,7 @@ bool App1::render()
 		GenerateNoiseTextures();
 	}
 	GeometryPass();
-	DepthPass();
-	//RayMarchPass();
 	CloudMarchPass();
-	//CloudFragPass();
 	FinalPass();
 
 	return true;
@@ -345,16 +348,6 @@ void App1::DepthPass()
 	renderer->resetViewport();
 }
 
-void App1::RayMarchPass()
-{
-	SimpleRayMarcherShader* shader = SystemParams::GetInstance().GetAssets().rayMarcherShader;
-
-	// Raymarching pass using render texture of the rendered scene
-	shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), renderer->getProjectionMatrix());
-	shader->compute(renderer->getDeviceContext(), ceil(sWidth / 8.0f), ceil(sHeight / 8.0f), ceil(sHeight / 8.0f));
-	shader->unbind(renderer->getDeviceContext());
-}
-
 void App1::CloudMarchPass()
 {
 	CloudMarcherShader* shader = SystemParams::GetInstance().GetAssets().cloudMarcherShader;
@@ -366,7 +359,7 @@ void App1::CloudMarchPass()
 		
 		if (recordTimeTaken)
 			cloudMarcherShaderTimer->StartTimer();
-		shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
+		shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 4.0f), ceil(screenHeight / 4.0f), 1);
 		shader->unbind(renderer->getDeviceContext());
 		if (recordTimeTaken)
 		{
@@ -381,7 +374,7 @@ void App1::CloudMarchPass()
 		
 		if (recordTimeTaken)
 			cloudMarcherShaderTimer->StartTimer();
-		shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 8.0f), ceil(screenHeight / 8.0f), 1);
+		shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 4.0f), ceil(screenHeight / 4.0f), 1);
 		shader->unbind(renderer->getDeviceContext());
 		if (recordTimeTaken)
 		{
@@ -390,25 +383,6 @@ void App1::CloudMarchPass()
 			isTimeRecorded = true;
 		}
 	}
-}
-
-void App1::CloudFragPass()
-{
-	// Set the render target to be the render to texture and clear it
-	cloudFragRT->setRenderTarget(renderer->getDeviceContext());
-	cloudFragRT->clearRenderTarget(renderer->getDeviceContext(), 0.0f, 0.0f, 1.0f, 1.0f);
-
-	XMMATRIX worldMatrix = renderer->getWorldMatrix();
-
-	renderer->setZBuffer(false);
-	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
-	assets->cloudFragShader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->shapeNoiseGenShader->getSRV(), worldMatrix, cloudFragRT->getOrthoMatrix(), cloudContainer);
-	assets->cloudFragShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
-	renderer->setZBuffer(true);
-
-	// Reset the render target back to the original back buffer and not the render to texture anymore.
-	renderer->setBackBufferRenderTarget();
-	renderer->resetViewport();
 }
 
 void App1::FinalPass()
@@ -425,26 +399,11 @@ void App1::FinalPass()
 	XMMATRIX baseViewMatrix = camera->getOrthoViewMatrix();
 
 	renderer->setZBuffer(false);
-	
-	//// Render ortho mesh with ray march
-	//assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
-	//assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->rayMarcherShader->getSRV());
-	//assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
-
-	//// Render ortho mesh with depth map
-	//assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
-	//assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, sceneDepthRT->getShaderResourceView());
-	//assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
 	// Render clouds
 	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
 	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->cloudMarcherShader->getSRV());
 	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
-
-	//// Render frag clouds
-	//assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
-	//assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, cloudFragRT->getShaderResourceView());
-	//assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with noise texture
 	if (showShapeNoiseTexture)
@@ -493,6 +452,8 @@ void App1::gui()
 	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
 	ImGui::Checkbox("Show Terrain", &showTerrain);
 
+	//ImGui::ShowDemoWindow();
+
 	// Noise settings
 	if (ImGui::CollapsingHeader("Noise Settings"))
 	{
@@ -508,6 +469,8 @@ void App1::gui()
 	CloudMarcherShader* cloudShader = assets->cloudMarcherShader;
 	if (ImGui::CollapsingHeader("Cloud Settings"))
 	{
+		ImGui::BeginChild("", ImVec2(0, 120), true, ImGuiWindowFlags_None);
+
 		if (ImGui::CollapsingHeader("Shape Noise"))
 		{
 			ImGui::SliderFloat3("ShapeNoiseOffset", shapeNoiseTexOffsetArray, 0, 100);
@@ -531,9 +494,11 @@ void App1::gui()
 			ImGui::SliderFloat("BlueNoise Strength", &blueNoiseOffsetStrength, 0, 10);
 			if (ImGui::Button("Record Compute Time"))
 				recordTimeTaken = true;
-			ImGui::Text("Compute-time(ms): %.5f", timetaken * 1000);
+			ImGui::Text("Compute-time(ms): %.5f", (timetaken * 1000.0));
 		}
 		cloudShader->SetBlueNoiseStrength(blueNoiseOffsetStrength);
+
+		ImGui::EndChild();
 	}
 	cloudShader->SetShapeNoiseOffset(shapeNoiseTexOffsetArray[0], shapeNoiseTexOffsetArray[1], shapeNoiseTexOffsetArray[2]);
 	cloudShader->SetShapeNoiseScale(shapeNoiseTexScale);

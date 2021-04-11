@@ -29,9 +29,7 @@ protected:
 	void GenerateNoiseTextures();
 	void GeometryPass();
 	void DepthPass();
-	void RayMarchPass();
 	void CloudMarchPass();
-	void CloudFragPass();
 	void FinalPass();
 	void gui();
 
@@ -75,6 +73,7 @@ private:
 	int densitySteps;
 	float stepSize;
 	float edgeFadePercent;
+	int reprojectionFrameCounter;
 
 	// Absorption settings
 	float lightAbsTowardsSun;

@@ -1,3 +1,4 @@
+#define NUM_THREADS 4
 
 SamplerState sampler0 : register(s0);
 RWTexture2D<float4> Result : register(u0);
@@ -7,10 +8,11 @@ Texture3D<float4> shapeNoiseTex : register(t2);
 Texture3D<float4> detailNoiseTex : register(t3);
 Texture2D<float4> weatherMapTex : register(t4);
 Texture2D<float4> blueNoiseTex : register(t5);
+Texture2D<float4> previousFrameTex : register(t6);
 
 cbuffer CameraBuffer : register(b0)
 {
-    matrix invViewMatrix, invProjectionMatrix;
+    matrix invViewMatrix, invProjectionMatrix, oldViewProjMatrix;
     float3 cameraPos;
     float padding;
 };
@@ -30,8 +32,7 @@ cbuffer CloudSettingsBuffer : register(b2)
     float4 detailNoiseTexTransform; // Offset = (x,y,z), Scale = w
     float4 detailNoiseWeights;
     float4 densitySettings; // Global coverage = x, Density Multiplier = y, Density Steps = z, Step Size = w
-    float blueNoiseStrength;
-    float3 padding3;
+    float4 optimisationSettings; // Blue noise strength = x, reprojectionFrame = y
 }
 
 cbuffer LightBuffer : register(b3)
@@ -242,17 +243,41 @@ float LightMarch(float3 pos)
     return saturate(cloudBrightness + transmittance * (1 - cloudBrightness));
 }
 
-[numthreads(8, 8, 1)]
-void main( int3 id : SV_DispatchThreadID )
+[numthreads(NUM_THREADS, NUM_THREADS, 1)]
+void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
 {
     // Get the UVs of the screen
     float2 resolution = float2(0, 0);
     Result.GetDimensions(resolution.x, resolution.y);
-    float2 uv = (float2(id.x, resolution.y - id.y) / resolution * 2 - 1);
+    float2 uv = float2(id.x, resolution.y - id.y) / resolution * 2 - 1;
+
+    // Only update 1/16 of the pixels per frame
+    int reprojectionFrame = optimisationSettings.y;
+    int randomIndexer[16] = { 0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5 };
+    if (groupIndex != randomIndexer[reprojectionFrame])
+    {
+        // Calculate the uv coord for the cam position from the last frame
+        float4 clipRay = float4(uv, 1.0, 1.0);
+        float4 camToWorld = mul(mul(invViewMatrix, invProjectionMatrix), clipRay);
+        camToWorld /= camToWorld.w;
+        float4 camClipSpacePos = mul(oldViewProjMatrix, camToWorld);
+        camClipSpacePos /= camClipSpacePos.w;
+        float2 oldUV = camClipSpacePos.xy;
+
+        float2 tranformedUVs = (oldUV + 1.0f) / 2.0f;
+        tranformedUVs = float2(tranformedUVs.x, 1 - tranformedUVs.y);
+        uint2 pixelID = tranformedUVs * resolution;
+
+        // Clamp pixelIDs at the edges
+        pixelID.x = min(max(0, pixelID.x), resolution.x - 1);
+        pixelID.y = min(max(0, pixelID.y), resolution.y - 1);
+
+        Result[id.xy] = previousFrameTex[pixelID];
+        return;
+    }
 
     // Set the colour to the source render texture initially
     float4 col = Source[id.xy];
-    Result[id.xy] = col;
 
     // Calculate the ray origin and direction
     Ray cameraRay = CreateCameraRay(uv);
@@ -268,6 +293,7 @@ void main( int3 id : SV_DispatchThreadID )
     float phaseVal = PhaseFunction(dot(rd, -lightDir));
 
     // Sample the blue noise to offset the distance travelled by the ray to reduce artifacting
+    float blueNoiseStrength = optimisationSettings.x;
     float dstOffset = blueNoiseTex.SampleLevel(sampler0, uv, 0).r;
     dstOffset *= blueNoiseStrength;
 
@@ -310,4 +336,6 @@ void main( int3 id : SV_DispatchThreadID )
     // Calculate the final colour of the clouds
     col = (col * transmittance) + (lightDiffuse * lightEnergy);
     Result[id.xy] = saturate(col);
+    //Result[id.xy] = float4(oldUV,0,0);
+    //Result[id.xy] = float4(uv,0,0);
 }

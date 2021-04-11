@@ -18,7 +18,7 @@ public:
 private:
 	struct CameraBufferType
 	{
-		XMMATRIX invViewMatrix, invProjectionMatrix;
+		XMMATRIX invViewMatrix, invProjectionMatrix, oldViewProjMatrix;
 		XMFLOAT3 cameraPos;
 		float padding;
 	};
@@ -38,8 +38,7 @@ private:
 		XMFLOAT4 detailNoiseTexTransform; // Offset = (x,y,z), Scale = w
 		XMFLOAT4 detailNoiseWeights;
 		XMFLOAT4 densitySettings; // Global Coverage = x, Density Multiplier = y, Density Steps = z, Step Size = w
-		float blueNoiseStrength;
-		XMFLOAT3 padding;
+		XMFLOAT4 optimisationSettings; // Blue noise strength = x, reprojectionFrame = y
 	};
 
 	struct LightBufferType
@@ -104,7 +103,8 @@ public:
 	inline void SetDetailNoiseWeights(XMFLOAT4 val) { cloudSettings.detailNoiseWeights = val; }
 	inline void SetEdgeFadePercentage(float val) { edgeFadePercent = val; }
 	void SetWeatherMapTexSettings(WeatherMapTextureSettings settings, TextureChannel channel);
-	inline void SetBlueNoiseStrength(float val) { cloudSettings.blueNoiseStrength = val; }
+	inline void SetBlueNoiseStrength(float val) { cloudSettings.optimisationSettings.x = val; }
+	inline void SetReprojectionFrame(int val) { cloudSettings.optimisationSettings.y = val; }
 
 private:
 	void initShader(const wchar_t* cfile, const wchar_t* blank);
@@ -112,10 +112,12 @@ private:
 
 	// Views
 	ID3D11ShaderResourceView* srvTexOutput;
+	ID3D11ShaderResourceView* previousFrame;
 	ID3D11UnorderedAccessView* uavTexAccess;
 
 	// Textures
 	ID3D11Texture2D* outputTexture;
+	ID3D11Texture2D* previousFrameTex;
 
 	// Buffers
 	ID3D11Buffer* cameraBuffer;
@@ -139,6 +141,7 @@ private:
 	// Scene Info
 	Camera* cam;
 	Light* mainLight;
+	XMMATRIX oldViewProjMatrix;
 
 	// Weather Map Settings
 	WeatherMapTextureSettings weatherRedChannel;

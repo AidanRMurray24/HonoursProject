@@ -12,7 +12,8 @@ CloudMarcherShader::CloudMarcherShader(ID3D11Device* device, HWND hwnd, int w, i
 	cloudSettings.densitySettings = XMFLOAT4(0.6f, 1, 100, 1);
 	cloudSettings.shapeNoiseTexTransform = XMFLOAT4(0, 0, 0, 40);
 	cloudSettings.detailNoiseTexTransform = XMFLOAT4(0, 0, 0, 40);
-	cloudSettings.blueNoiseStrength = 3.f;
+	cloudSettings.optimisationSettings.x = 3.f;
+	cloudSettings.optimisationSettings.y = 0.0f;
 	absorptionData = XMFLOAT4(0.75f, 1.21f, 0.15f, 8.0f);
 	edgeFadePercent = 0.3f;
 
@@ -39,6 +40,7 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	camPtr = (CameraBufferType*)mappedResource.pData;
 	camPtr->invViewMatrix = invView;
 	camPtr->invProjectionMatrix = invProjection;
+	camPtr->oldViewProjMatrix = oldViewProjMatrix;
 	camPtr->cameraPos = cam->getPosition();
 	dc->Unmap(cameraBuffer, 0);
 
@@ -60,7 +62,8 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	cloudSettingsPtr->detailNoiseTexTransform = cloudSettings.detailNoiseTexTransform;
 	cloudSettingsPtr->detailNoiseWeights = cloudSettings.detailNoiseWeights;
 	cloudSettingsPtr->densitySettings = cloudSettings.densitySettings;
-	cloudSettingsPtr->blueNoiseStrength = cloudSettings.blueNoiseStrength;
+	cloudSettingsPtr->optimisationSettings.x = cloudSettings.optimisationSettings.x;
+	cloudSettingsPtr->optimisationSettings.y = cloudSettings.optimisationSettings.y;
 	dc->Unmap(cloudSettingsBuffer, 0);
 
 	// Fill light buffer
@@ -95,10 +98,14 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	dc->CSSetShaderResources(3, 1, &detailNoiseTex);
 	dc->CSSetShaderResources(4, 1, &weatherMap);
 	dc->CSSetShaderResources(5, 1, &blueNoise);
+	dc->CSSetShaderResources(6, 1, &previousFrame);
 	dc->CSSetUnorderedAccessViews(0, 1, &uavTexAccess, 0);
 
 	// Set the sampler inside the shader
 	dc->CSSetSamplers(0, 1, &sampleState);
+
+	// Calculate the old view projection matrix
+	oldViewProjMatrix = XMMatrixMultiply(cam->getViewMatrix(), projectionMatrix);
 }
 
 void CloudMarcherShader::createGPUViews()
@@ -119,6 +126,7 @@ void CloudMarcherShader::createGPUViews()
 	textureDesc.MiscFlags = 0;
 	outputTexture = 0;
 	renderer->CreateTexture2D(&textureDesc, 0, &outputTexture);
+	renderer->CreateTexture2D(&textureDesc, 0, &previousFrameTex);
 
 	// Setup UAV for the output texture
 	D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc;
@@ -136,6 +144,7 @@ void CloudMarcherShader::createGPUViews()
 	srvDesc.Texture2D.MostDetailedMip = 0;
 	srvDesc.Texture2D.MipLevels = 1;
 	renderer->CreateShaderResourceView(outputTexture, &srvDesc, &srvTexOutput);
+	renderer->CreateShaderResourceView(previousFrameTex, &srvDesc, &previousFrame);
 }
 
 void CloudMarcherShader::unbind(ID3D11DeviceContext* dc)
@@ -147,6 +156,7 @@ void CloudMarcherShader::unbind(ID3D11DeviceContext* dc)
 	dc->CSSetShaderResources(3, 1, nullSRV);
 	dc->CSSetShaderResources(4, 1, nullSRV);
 	dc->CSSetShaderResources(5, 1, nullSRV);
+	dc->CSSetShaderResources(6, 1, nullSRV);
 
 	// Unbind output from compute shader
 	ID3D11UnorderedAccessView* nullUAV[] = { NULL };
@@ -154,6 +164,12 @@ void CloudMarcherShader::unbind(ID3D11DeviceContext* dc)
 
 	// Disable Compute Shader
 	dc->CSSetShader(nullptr, nullptr, 0);
+
+	ID3D11Resource* srvOutPutResource;
+	ID3D11Resource* previousFrameResource;
+	srvTexOutput->GetResource(&srvOutPutResource);
+	previousFrame->GetResource(&previousFrameResource);
+	dc->CopyResource(previousFrameResource, srvOutPutResource);
 }
 
 void CloudMarcherShader::SetWeatherMapTexSettings(WeatherMapTextureSettings settings, TextureChannel channel)
