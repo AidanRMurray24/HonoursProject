@@ -84,6 +84,9 @@
     <ClCompile Include="WeatherMapShader.cpp">
       <Filter>Source Files\Shaders</Filter>
     </ClCompile>
+    <ClCompile Include="TemporalReprojectionShader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App1.h">
@@ -143,6 +146,9 @@
     <ClInclude Include="TextureChannel.h">
       <Filter>Header Files\Tools</Filter>
     </ClInclude>
+    <ClInclude Include="TemporalReprojectionShader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="shaders\manipulation_ps.hlsl">
@@ -191,6 +197,9 @@
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="shaders\weatherMap_cs.hlsl">
+      <Filter>Resource Files</Filter>
+    </FxCompile>
+    <FxCompile Include="shaders\temporalReprojection_cs.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
   </ItemGroup>

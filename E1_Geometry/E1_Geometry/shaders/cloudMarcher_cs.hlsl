@@ -192,12 +192,12 @@ float BeersLaw(float depth)
 
 float PowderEffect(float depth)
 {
-    return (1.0f - exp(-depth));
+    return (1.0f - exp(-depth * 2.0f));
 }
 
-float BeerPowderEffect(float depth, float strength = 1.0f)
+float BeerPowderEffect(float depth, float absorbtion, float strength = 2.0f)
 {
-    return strength * BeersLaw(depth) * PowderEffect(depth * 2);
+    return strength * BeersLaw(depth * absorbtion) * PowderEffect(depth);
 }
 
 float HenyeyGreenstein(float a, float g)
@@ -238,41 +238,31 @@ float LightMarch(float3 pos)
     // Use the beer-powder effect to calculate the transmittance of the light as it passes through the container
     float lightAbsTowardSun = lightAbsorptionData.x;
     float cloudBrightness = lightAbsorptionData.z;
-    //float transmittance = BeerPowderEffect(totalDensity * lightAbsTowardSun, 1.0f);
+    //float transmittance = BeerPowderEffect(totalDensity, lightAbsTowardSun, 2.0f);
     float transmittance = BeersLaw(totalDensity * lightAbsTowardSun);
     return saturate(cloudBrightness + transmittance * (1 - cloudBrightness));
 }
 
 [numthreads(NUM_THREADS, NUM_THREADS, 1)]
-void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
+void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 groupID : SV_GroupID)
 {
     // Get the UVs of the screen
     float2 resolution = float2(0, 0);
     Result.GetDimensions(resolution.x, resolution.y);
-    float2 uv = float2(id.x, resolution.y - id.y) / resolution * 2 - 1;
+    float2 uv = (id.xy / resolution) * 2 - 1;
+    uv *= float2(1, -1);
 
     // Only update 1/16 of the pixels per frame
     int reprojectionFrame = optimisationSettings.y;
-    int randomIndexer[16] = { 0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5 };
-    if (groupIndex != randomIndexer[reprojectionFrame])
+    int bayerFilter[16] =
     {
-        // Calculate the uv coord for the cam position from the last frame
-        float4 clipRay = float4(uv, 1.0, 1.0);
-        float4 camToWorld = mul(mul(invViewMatrix, invProjectionMatrix), clipRay);
-        camToWorld /= camToWorld.w;
-        float4 camClipSpacePos = mul(oldViewProjMatrix, camToWorld);
-        camClipSpacePos /= camClipSpacePos.w;
-        float2 oldUV = camClipSpacePos.xy;
-
-        float2 tranformedUVs = (oldUV + 1.0f) / 2.0f;
-        tranformedUVs = float2(tranformedUVs.x, 1 - tranformedUVs.y);
-        uint2 pixelID = tranformedUVs * resolution;
-
-        // Clamp pixelIDs at the edges
-        pixelID.x = min(max(0, pixelID.x), resolution.x - 1);
-        pixelID.y = min(max(0, pixelID.y), resolution.y - 1);
-
-        Result[id.xy] = previousFrameTex[pixelID];
+        0,8,2,10,
+        12,4,14,6,
+        3,11,1,9,
+        15,7,13,5
+    };
+    if (groupIndex != bayerFilter[reprojectionFrame])
+    {
         return;
     }
 
@@ -336,6 +326,4 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
     // Calculate the final colour of the clouds
     col = (col * transmittance) + (lightDiffuse * lightEnergy);
     Result[id.xy] = saturate(col);
-    //Result[id.xy] = float4(oldUV,0,0);
-    //Result[id.xy] = float4(uv,0,0);
 }

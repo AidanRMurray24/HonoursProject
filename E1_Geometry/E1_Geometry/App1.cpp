@@ -14,6 +14,7 @@
 #include "PerlinNoiseShader.h"
 #include "PerlinWorleyShader.h"
 #include "WeatherMapShader.h"
+#include "TemporalReprojectionShader.h"
 
 App1::App1()
 {
@@ -187,6 +188,8 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	sceneObjects.push_back(cloudContainer);
 	terrainPlane = new TerrainPlane();
 	sceneObjects.push_back(terrainPlane);
+
+	oldViewProjMatrix = XMMatrixMultiply(camera->getViewMatrix(), renderer->getProjectionMatrix());
 }
 
 
@@ -263,6 +266,7 @@ bool App1::render()
 	}
 	GeometryPass();
 	CloudMarchPass();
+	ReprojectionPass();
 	FinalPass();
 
 	return true;
@@ -359,7 +363,7 @@ void App1::CloudMarchPass()
 		
 		if (recordTimeTaken)
 			cloudMarcherShaderTimer->StartTimer();
-		shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 4.0f), ceil(screenHeight / 4.0f), 1);
+		shader->compute(renderer->getDeviceContext(), ceil((int)(screenWidth / 4.0f)), ceil((int)(screenHeight / 4.0f)), 1);
 		shader->unbind(renderer->getDeviceContext());
 		if (recordTimeTaken)
 		{
@@ -374,7 +378,7 @@ void App1::CloudMarchPass()
 		
 		if (recordTimeTaken)
 			cloudMarcherShaderTimer->StartTimer();
-		shader->compute(renderer->getDeviceContext(), ceil(screenWidth / 4.0f), ceil(screenHeight / 4.0f), 1);
+		shader->compute(renderer->getDeviceContext(), ceil((int)(screenWidth / 4.0f)), ceil((int)(screenHeight / 4.0f)), 1);
 		shader->unbind(renderer->getDeviceContext());
 		if (recordTimeTaken)
 		{
@@ -383,6 +387,20 @@ void App1::CloudMarchPass()
 			isTimeRecorded = true;
 		}
 	}
+}
+
+void App1::ReprojectionPass()
+{
+	TemporalReprojectionShader* shader = assets->temporalReprojectionShader;
+	currentInvViewProjMatrix = XMMatrixInverse(nullptr, XMMatrixMultiply(camera->getViewMatrix(), renderer->getProjectionMatrix()));
+
+	shader->setShaderParameters(renderer->getDeviceContext(), assets->cloudMarcherShader->getSRV(), assets->cloudMarcherShader->getPreviousTex(), XMMatrixTranspose(oldViewProjMatrix), XMMatrixTranspose(currentInvViewProjMatrix), reprojectionFrameCounter);
+	//shader->setShaderParameters(renderer->getDeviceContext(), assets->cloudMarcherShader->getSRV(), assets->cloudMarcherShader->getPreviousTex(), oldViewProjMatrix, currentInvViewProjMatrix, reprojectionFrameCounter);
+	shader->compute(renderer->getDeviceContext(), ceil((int)(screenWidth / 4.0f)), ceil((int)(screenHeight / 4.0f)), 1);
+	shader->unbind(renderer->getDeviceContext());
+
+	oldViewProjMatrix = XMMatrixMultiply(camera->getViewMatrix(), renderer->getProjectionMatrix());
+	assets->cloudMarcherShader->SaveLastFrame(renderer->getDeviceContext());
 }
 
 void App1::FinalPass()
@@ -403,6 +421,11 @@ void App1::FinalPass()
 	// Render clouds
 	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
 	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->cloudMarcherShader->getSRV());
+	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
+
+	// Render temporal reprojection pass
+	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
+	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->temporalReprojectionShader->getSRV());
 	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
 	// Render ortho mesh with noise texture
@@ -469,7 +492,7 @@ void App1::gui()
 	CloudMarcherShader* cloudShader = assets->cloudMarcherShader;
 	if (ImGui::CollapsingHeader("Cloud Settings"))
 	{
-		ImGui::BeginChild("", ImVec2(0, 120), true, ImGuiWindowFlags_None);
+		ImGui::BeginChild("", ImVec2(0, 150), true, ImGuiWindowFlags_None);
 
 		if (ImGui::CollapsingHeader("Shape Noise"))
 		{
@@ -562,6 +585,7 @@ void App1::LoadAssets(HWND hwnd)
 	assets.perlinNoiseShader = new PerlinNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.perlinWorleyShader = new PerlinWorleyShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.weatherMapShader = new WeatherMapShader(device, hwnd, weatherMapTexRes, weatherMapTexRes);
+	assets.temporalReprojectionShader = new TemporalReprojectionShader(device, hwnd, screenWidth, screenHeight);
 
 	// Initialise Meshes
 	assets.cubeMesh = new CubeMesh(device, deviceContext);

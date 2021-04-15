@@ -30,6 +30,7 @@ protected:
 	void GeometryPass();
 	void DepthPass();
 	void CloudMarchPass();
+	void ReprojectionPass();
 	void FinalPass();
 	void gui();
 
@@ -74,6 +75,8 @@ private:
 	float stepSize;
 	float edgeFadePercent;
 	int reprojectionFrameCounter;
+	XMMATRIX oldViewProjMatrix;
+	XMMATRIX currentInvViewProjMatrix;
 
 	// Absorption settings
 	float lightAbsTowardsSun;

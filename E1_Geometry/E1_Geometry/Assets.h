@@ -19,6 +19,7 @@ struct Assets
 	class PerlinNoiseShader* perlinNoiseShader = nullptr;
 	class PerlinWorleyShader* perlinWorleyShader = nullptr;
 	class WeatherMapShader* weatherMapShader = nullptr;
+	class TemporalReprojectionShader* temporalReprojectionShader = nullptr;
 
 	// Meshes
 	class CubeMesh* cubeMesh = nullptr;
@@ -47,6 +48,7 @@ struct Assets
 		CLEAN_POINTER(perlinNoiseShader);
 		CLEAN_POINTER(perlinWorleyShader);
 		CLEAN_POINTER(weatherMapShader);
+		CLEAN_POINTER(temporalReprojectionShader);
 
 		// Meshes
 		CLEAN_POINTER(cubeMesh);

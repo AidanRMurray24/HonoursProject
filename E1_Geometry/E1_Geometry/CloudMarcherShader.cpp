@@ -164,7 +164,10 @@ void CloudMarcherShader::unbind(ID3D11DeviceContext* dc)
 
 	// Disable Compute Shader
 	dc->CSSetShader(nullptr, nullptr, 0);
+}
 
+void CloudMarcherShader::SaveLastFrame(ID3D11DeviceContext* dc)
+{
 	ID3D11Resource* srvOutPutResource;
 	ID3D11Resource* previousFrameResource;
 	srvTexOutput->GetResource(&srvOutPutResource);

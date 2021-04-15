@@ -62,7 +62,12 @@ public:
 	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex, ID3D11ShaderResourceView* weatherMap, ID3D11ShaderResourceView* blueNoise, const XMMATRIX& projectionMatrix, CloudContainer* container);
 	void createGPUViews();
 	void unbind(ID3D11DeviceContext* dc);
+
+	void SaveLastFrame(ID3D11DeviceContext* dc);
+
+	// Getters
 	inline ID3D11ShaderResourceView* getSRV() { return srvTexOutput; }
+	inline ID3D11ShaderResourceView* getPreviousTex() { return previousFrame; }
 
 	// Setters
 	inline void SetDensityThreshold(float val) { cloudSettings.densitySettings.x = val; }
