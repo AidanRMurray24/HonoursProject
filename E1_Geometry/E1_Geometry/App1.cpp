@@ -574,14 +574,12 @@ void App1::LoadAssets(HWND hwnd)
 
 	// Initialise Shaders
 	assets.manipulationShader = new ManipulationShader(device, hwnd);
-	assets.rayMarcherShader = new SimpleRayMarcherShader(device, hwnd, screenWidth, screenHeight, camera, light);
 	assets.tex2DShader = new TextureShader(device, hwnd, TextureType::TEXTURE2D);
 	assets.tex3DShader = new TextureShader(device, hwnd, TextureType::TEXTURE3D);
 	assets.shapeNoiseGenShader = new WorleyNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.detailNoiseGenShader = new WorleyNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, screenWidth, screenHeight, camera, light);
 	assets.depthShader = new DepthShader(device, hwnd);
-	assets.cloudFragShader = new CloudFragShader(device, hwnd, screenWidth, screenHeight, camera);
 	assets.perlinNoiseShader = new PerlinNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.perlinWorleyShader = new PerlinWorleyShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.weatherMapShader = new WeatherMapShader(device, hwnd, weatherMapTexRes, weatherMapTexRes);
