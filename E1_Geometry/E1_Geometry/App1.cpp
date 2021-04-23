@@ -5,12 +5,10 @@
 
 // Shaders
 #include "ManipulationShader.h"
-#include "SimpleRayMarcherShader.h"
 #include "TextureShader.h"
 #include "WorleyNoiseShader.h"
 #include "CloudMarcherShader.h"
 #include "DepthShader.h"
-#include "CloudFragShader.h"
 #include "PerlinNoiseShader.h"
 #include "PerlinWorleyShader.h"
 #include "WeatherMapShader.h"
@@ -96,8 +94,8 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	// Initialise Lights
 	light = new Light;
 	light->setPosition(0, 0, 0);
-	//light->setDiffuseColour(1.0f, 0.9f, 0.8f, 1.0f);
-	light->setDiffuseColour(1.0f, 1, 1, 1.0f);
+	light->setDiffuseColour(1.0f, 0.9f, 0.8f, 1.0f);
+	//light->setDiffuseColour(1.0f, 1, 1, 1.0f);
 	light->setDirection(0.7f, -0.7f, 0.0f);
 
 	LoadAssets(hwnd);
