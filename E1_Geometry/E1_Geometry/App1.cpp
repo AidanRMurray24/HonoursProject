@@ -17,6 +17,12 @@
 App1::App1()
 {
 	assets = nullptr;
+	cloudContainer = nullptr;
+	terrainPlane = nullptr;
+	currentInvViewProjMatrix = XMMatrixIdentity();
+	oldViewProjMatrix = XMMatrixIdentity();
+	screenHeight = 0;
+	screenWidth = 0;
 
 	// Render textures
 	sceneRT = nullptr;
@@ -35,7 +41,7 @@ App1::App1()
 
 	// Noise data
 	shapeNoiseGenTexRes = 128;
-	detailNoiseGenTexRes = 128;
+	detailNoiseGenTexRes = 32;
 	textureGenerated = false;
 	showShapeNoiseTexture = false;
 	showDetailNoiseTexture = false;
@@ -60,6 +66,7 @@ App1::App1()
 	detailNoiseTexScale = 30.0f;
 	edgeFadePercent = 0.3f;
 	reprojectionFrameCounter = 1;
+	useTemporalReprojection = false;
 
 	// Absorption settings
 	lightAbsTowardsSun = 0.84f;
@@ -264,7 +271,8 @@ bool App1::render()
 	}
 	GeometryPass();
 	CloudMarchPass();
-	ReprojectionPass();
+	if (useTemporalReprojection)
+		ReprojectionPass();
 	FinalPass();
 
 	return true;
@@ -281,31 +289,31 @@ void App1::GenerateWeatherMap()
 void App1::GenerateNoiseTextures()
 {
 	// Generate shape noise texture
-	WorleyNoiseShader* worleyNoiseShader = SystemParams::GetInstance().GetAssets().shapeNoiseGenShader;
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::RED);
-	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
-	worleyNoiseShader->unbind(renderer->getDeviceContext());
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::GREEN);
-	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
-	worleyNoiseShader->unbind(renderer->getDeviceContext());
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::BLUE);
-	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
-	worleyNoiseShader->unbind(renderer->getDeviceContext());
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::ALPHA);
-	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
-	worleyNoiseShader->unbind(renderer->getDeviceContext());
+	WorleyNoiseShader* shapeNoiseShader = SystemParams::GetInstance().GetAssets().shapeNoiseGenShader;
+	shapeNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::RED);
+	shapeNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
+	shapeNoiseShader->unbind(renderer->getDeviceContext());
+	shapeNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::GREEN);
+	shapeNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
+	shapeNoiseShader->unbind(renderer->getDeviceContext());
+	shapeNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::BLUE);
+	shapeNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
+	shapeNoiseShader->unbind(renderer->getDeviceContext());
+	shapeNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::ALPHA);
+	shapeNoiseShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
+	shapeNoiseShader->unbind(renderer->getDeviceContext());
 
 	// Generate detail noise texture
-	worleyNoiseShader = SystemParams::GetInstance().GetAssets().detailNoiseGenShader;
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::RED);
-	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
-	worleyNoiseShader->unbind(renderer->getDeviceContext());
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::GREEN);
-	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
-	worleyNoiseShader->unbind(renderer->getDeviceContext());
-	worleyNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::BLUE);
-	worleyNoiseShader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
-	worleyNoiseShader->unbind(renderer->getDeviceContext());
+	WorleyNoiseShader* detailNoiseShader = SystemParams::GetInstance().GetAssets().detailNoiseGenShader;
+	detailNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::RED);
+	detailNoiseShader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
+	detailNoiseShader->unbind(renderer->getDeviceContext());
+	detailNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::GREEN);
+	detailNoiseShader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
+	detailNoiseShader->unbind(renderer->getDeviceContext());
+	detailNoiseShader->setShaderParameters(renderer->getDeviceContext(), TextureChannel::BLUE);
+	detailNoiseShader->compute(renderer->getDeviceContext(), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f), ceil(detailNoiseGenTexRes / 8.0f));
+	detailNoiseShader->unbind(renderer->getDeviceContext());
 
 	// Generate perlin noise texture
 	PerlinNoiseShader* perlinNoiseShader = SystemParams::GetInstance().GetAssets().perlinNoiseShader;
@@ -315,7 +323,7 @@ void App1::GenerateNoiseTextures()
 
 	// Combine the perlin and worley textures
 	PerlinWorleyShader* perlinWorleyShader = SystemParams::GetInstance().GetAssets().perlinWorleyShader;
-	perlinWorleyShader->setShaderParameters(renderer->getDeviceContext(), perlinNoiseShader->getSRV(), worleyNoiseShader->getSRV());
+	perlinWorleyShader->setShaderParameters(renderer->getDeviceContext(), perlinNoiseShader->getSRV(), shapeNoiseShader->getSRV());
 	perlinWorleyShader->compute(renderer->getDeviceContext(), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f), ceil(shapeNoiseGenTexRes / 8.0f));
 	perlinWorleyShader->unbind(renderer->getDeviceContext());
 }
@@ -422,9 +430,12 @@ void App1::FinalPass()
 	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
 
 	// Render temporal reprojection pass
-	assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
-	assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->temporalReprojectionShader->getSRV());
-	assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
+	if (useTemporalReprojection)
+	{
+		assets->screenOrthoMesh->sendData(renderer->getDeviceContext());
+		assets->tex2DShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, baseViewMatrix, orthoMatrix, assets->temporalReprojectionShader->getSRV());
+		assets->tex2DShader->render(renderer->getDeviceContext(), assets->screenOrthoMesh->getIndexCount());
+	}
 
 	// Render ortho mesh with noise texture
 	if (showShapeNoiseTexture)
@@ -516,8 +527,10 @@ void App1::gui()
 			if (ImGui::Button("Record Compute Time"))
 				recordTimeTaken = true;
 			ImGui::Text("Compute-time(ms): %.5f", (timetaken * 1000.0));
+			ImGui::Checkbox("Temporal Reprojection", &useTemporalReprojection);
 		}
 		cloudShader->SetBlueNoiseStrength(blueNoiseOffsetStrength);
+		cloudShader->SetTemporalReprojection(useTemporalReprojection);
 
 		ImGui::EndChild();
 	}
@@ -575,7 +588,7 @@ void App1::LoadAssets(HWND hwnd)
 	assets.tex2DShader = new TextureShader(device, hwnd, TextureType::TEXTURE2D);
 	assets.tex3DShader = new TextureShader(device, hwnd, TextureType::TEXTURE3D);
 	assets.shapeNoiseGenShader = new WorleyNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
-	assets.detailNoiseGenShader = new WorleyNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
+	assets.detailNoiseGenShader = new WorleyNoiseShader(device, hwnd, detailNoiseGenTexRes, detailNoiseGenTexRes, detailNoiseGenTexRes);
 	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, screenWidth, screenHeight, camera, light);
 	assets.depthShader = new DepthShader(device, hwnd);
 	assets.perlinNoiseShader = new PerlinNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);

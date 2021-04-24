@@ -38,7 +38,7 @@ private:
 		XMFLOAT4 detailNoiseTexTransform; // Offset = (x,y,z), Scale = w
 		XMFLOAT4 detailNoiseWeights;
 		XMFLOAT4 densitySettings; // Global Coverage = x, Density Multiplier = y, Density Steps = z, Step Size = w
-		XMFLOAT4 optimisationSettings; // Blue noise strength = x, reprojectionFrame = y
+		XMFLOAT4 optimisationSettings; // Blue noise strength = x, reprojectionFrame = y, useTemporalReprojection = z
 	};
 
 	struct LightBufferType
@@ -110,6 +110,7 @@ public:
 	void SetWeatherMapTexSettings(WeatherMapTextureSettings settings, TextureChannel channel);
 	inline void SetBlueNoiseStrength(float val) { cloudSettings.optimisationSettings.x = val; }
 	inline void SetReprojectionFrame(int val) { cloudSettings.optimisationSettings.y = val; }
+	inline void SetTemporalReprojection(bool val) { cloudSettings.optimisationSettings.z = val; }
 
 private:
 	void initShader(const wchar_t* cfile, const wchar_t* blank);

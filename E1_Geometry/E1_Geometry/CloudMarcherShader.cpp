@@ -14,6 +14,7 @@ CloudMarcherShader::CloudMarcherShader(ID3D11Device* device, HWND hwnd, int w, i
 	cloudSettings.detailNoiseTexTransform = XMFLOAT4(0, 0, 0, 40);
 	cloudSettings.optimisationSettings.x = 3.f;
 	cloudSettings.optimisationSettings.y = 0.0f;
+	cloudSettings.optimisationSettings.z = 0.0f;
 	absorptionData = XMFLOAT4(0.75f, 1.21f, 0.15f, 8.0f);
 	edgeFadePercent = 0.3f;
 
@@ -64,6 +65,7 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	cloudSettingsPtr->densitySettings = cloudSettings.densitySettings;
 	cloudSettingsPtr->optimisationSettings.x = cloudSettings.optimisationSettings.x;
 	cloudSettingsPtr->optimisationSettings.y = cloudSettings.optimisationSettings.y;
+	cloudSettingsPtr->optimisationSettings.z = cloudSettings.optimisationSettings.z;
 	dc->Unmap(cloudSettingsBuffer, 0);
 
 	// Fill light buffer

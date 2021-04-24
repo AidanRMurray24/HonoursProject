@@ -77,6 +77,7 @@ private:
 	int reprojectionFrameCounter;
 	XMMATRIX oldViewProjMatrix;
 	XMMATRIX currentInvViewProjMatrix;
+	bool useTemporalReprojection;
 
 	// Absorption settings
 	float lightAbsTowardsSun;

@@ -32,7 +32,7 @@ cbuffer CloudSettingsBuffer : register(b2)
     float4 detailNoiseTexTransform; // Offset = (x,y,z), Scale = w
     float4 detailNoiseWeights;
     float4 densitySettings; // Global coverage = x, Density Multiplier = y, Density Steps = z, Step Size = w
-    float4 optimisationSettings; // Blue noise strength = x, reprojectionFrame = y
+    float4 optimisationSettings; // Blue noise strength = x, reprojectionFrame = y, useTemporalReprojection = z
 }
 
 cbuffer LightBuffer : register(b3)
@@ -246,25 +246,28 @@ float LightMarch(float3 pos)
 [numthreads(NUM_THREADS, NUM_THREADS, 1)]
 void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 groupID : SV_GroupID)
 {
+    // Check if temproal reprojection has been enabled first
+    bool useTemporalReprojection = optimisationSettings.z;
+    if (useTemporalReprojection)
+    {
+        // Only update 1/16 of the pixels per frame
+        int reprojectionFrame = optimisationSettings.y;
+        int bayerFilter[16] =
+        {
+            0,8,2,10,
+            12,4,14,6,
+            3,11,1,9,
+            15,7,13,5
+        };
+        if (groupIndex != bayerFilter[reprojectionFrame])
+            return;
+    }
+
     // Get the UVs of the screen
     float2 resolution = float2(0, 0);
     Result.GetDimensions(resolution.x, resolution.y);
     float2 uv = (id.xy / resolution) * 2 - 1;
     uv *= float2(1, -1);
-
-    // Only update 1/16 of the pixels per frame
-    int reprojectionFrame = optimisationSettings.y;
-    int bayerFilter[16] =
-    {
-        0,8,2,10,
-        12,4,14,6,
-        3,11,1,9,
-        15,7,13,5
-    };
-    if (groupIndex != bayerFilter[reprojectionFrame])
-    {
-        return;
-    }
 
     // Set the colour to the source render texture initially
     float4 col = Source[id.xy];
@@ -284,7 +287,7 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
 
     // Sample the blue noise to offset the distance travelled by the ray to reduce artifacting
     float blueNoiseStrength = optimisationSettings.x;
-    float dstOffset = blueNoiseTex.SampleLevel(sampler0, uv, 0).r;
+    float dstOffset = blueNoiseTex.SampleLevel(sampler0, uv * resolution / 1000.0f, 0).r;
     dstOffset *= blueNoiseStrength;
 
     // Ray marching
@@ -296,7 +299,7 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
     float stepSize = densitySettings.w;
     float3 entryPoint = ro + rd * dstToBox;     // Point of intersection with the cloud container
     int stepCounter = 0;
-    do
+    while (dstTravelled < dstInsideBox && stepCounter < numSteps)  // Exit if the ray is travelling outside the box or the number of steps is past the max
     {
         // March ray inside the box
         float3 rayPos = entryPoint + rd * dstTravelled;
@@ -321,7 +324,6 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
         dstTravelled += stepSize;
         stepCounter++;
     } 
-    while (dstTravelled < dstInsideBox && stepCounter < numSteps);  // Exit if the ray is travelling outside the box or the number of steps is past the max
 
     // Calculate the final colour of the clouds
     col = (col * transmittance) + (lightDiffuse * lightEnergy);

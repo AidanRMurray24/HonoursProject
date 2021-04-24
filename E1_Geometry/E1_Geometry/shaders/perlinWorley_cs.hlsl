@@ -8,8 +8,8 @@ void main(int3 groupThreadID : SV_GroupThreadID, int3 id : SV_DispatchThreadID)
 {
 	float4 col = float4(0,0,0,0);
 
-	col = perlinNoise[id.xyz];
-	col.r = lerp(perlinNoise[id.xyz].r, worleyNoise[id.xyz].r, .5f);
+	col = worleyNoise[id.xyz];
+	col.r = lerp(perlinNoise[id.xyz].r, worleyNoise[id.xyz].r, 0.3f);
 
 	Result[id.xyz] = col;
 }
