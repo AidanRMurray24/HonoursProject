@@ -78,6 +78,7 @@ private:
 	XMMATRIX oldViewProjMatrix;
 	XMMATRIX currentInvViewProjMatrix;
 	bool useTemporalReprojection;
+	XMFLOAT2 cloudTextureRes;
 
 	// Absorption settings
 	float lightAbsTowardsSun;
@@ -98,6 +99,7 @@ private:
 	WorleyNoiseShader::WorleyNoiseSettings shapeNoiseSettings;
 	WorleyNoiseShader::WorleyNoiseSettings detailNoiseSettings;
 	float blueNoiseOffsetStrength;
+	float noiseOrthoMeshRes;
 
 	// Weather Map settings
 	bool showWeatherMap;

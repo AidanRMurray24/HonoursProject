@@ -50,9 +50,10 @@ App1::App1()
 	tileVal = 1.0f;
 	sliceVal = 0;
 	blueNoiseOffsetStrength = 6.f;
+	noiseOrthoMeshRes = 256;
 
 	// Cloud Settings
-	globalCoverage = 0.7f;
+	globalCoverage = 0.5f;
 	densityMultiplier = 1.0f;
 	densitySteps = 1000;
 	stepSize = 2.5;
@@ -67,6 +68,7 @@ App1::App1()
 	edgeFadePercent = 0.3f;
 	reprojectionFrameCounter = 1;
 	useTemporalReprojection = false;
+	cloudTextureRes = XMFLOAT2(0,0);
 
 	// Absorption settings
 	lightAbsTowardsSun = 0.84f;
@@ -92,6 +94,8 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	screenWidth = _screenWidth;
 	screenHeight = _screenHeight;
 
+	cloudTextureRes = XMFLOAT2(screenWidth / 2, screenHeight / 2);
+
 	// Call super/parent init function (required!)
 	BaseApplication::init(hinstance, hwnd, screenWidth, screenHeight, in, VSYNC, FULL_SCREEN);
 	SystemParams::GetInstance().SetRenderer(renderer);
@@ -111,36 +115,36 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	{
 		// RED
 		shapeNoiseSettings.seed = 34;
-		shapeNoiseSettings.numCellsA = 5;
-		shapeNoiseSettings.numCellsB = 10;
-		shapeNoiseSettings.numCellsC = 15;
+		shapeNoiseSettings.numCellsA = 7;
+		shapeNoiseSettings.numCellsB = 12;
+		shapeNoiseSettings.numCellsC = 17;
 		shapeNoiseSettings.persistence = 0.5f;
 		shapeNoiseSettings.channel = XMFLOAT4(1, 0, 0, 0);
 		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, TextureChannel::RED);
 
 		// GREEN
 		shapeNoiseSettings.seed = 23;
-		shapeNoiseSettings.numCellsA = 7;
-		shapeNoiseSettings.numCellsB = 12;
-		shapeNoiseSettings.numCellsC = 17;
+		shapeNoiseSettings.numCellsA = 10;
+		shapeNoiseSettings.numCellsB = 20;
+		shapeNoiseSettings.numCellsC = 30;
 		shapeNoiseSettings.persistence = 0.5f;
 		shapeNoiseSettings.channel = XMFLOAT4(0, 1, 0, 0);
 		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, TextureChannel::GREEN);
 
 		// BLUE
 		shapeNoiseSettings.seed = 456;
-		shapeNoiseSettings.numCellsA = 10;
-		shapeNoiseSettings.numCellsB = 15;
-		shapeNoiseSettings.numCellsC = 20;
+		shapeNoiseSettings.numCellsA = 20;
+		shapeNoiseSettings.numCellsB = 40;
+		shapeNoiseSettings.numCellsC = 60;
 		shapeNoiseSettings.persistence = 0.5f;
 		shapeNoiseSettings.channel = XMFLOAT4(0, 0, 1, 0);
 		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, TextureChannel::BLUE);
 
 		// ALPHA
 		shapeNoiseSettings.seed = 656;
-		shapeNoiseSettings.numCellsA = 20;
-		shapeNoiseSettings.numCellsB = 40;
-		shapeNoiseSettings.numCellsC = 60;
+		shapeNoiseSettings.numCellsA = 40;
+		shapeNoiseSettings.numCellsB = 80;
+		shapeNoiseSettings.numCellsC = 100;
 		shapeNoiseSettings.persistence = 0.5f;
 		shapeNoiseSettings.channel = XMFLOAT4(0, 0, 0, 1);
 		assets->shapeNoiseGenShader->SetNoiseSettings(shapeNoiseSettings, TextureChannel::ALPHA);
@@ -369,7 +373,7 @@ void App1::CloudMarchPass()
 		
 		if (recordTimeTaken)
 			cloudMarcherShaderTimer->StartTimer();
-		shader->compute(renderer->getDeviceContext(), ceil((int)(screenWidth / 4.0f)), ceil((int)(screenHeight / 4.0f)), 1);
+		shader->compute(renderer->getDeviceContext(), ceil((int)(cloudTextureRes.x / 4.0f)), ceil((int)(cloudTextureRes.y / 4.0f)), 1);
 		shader->unbind(renderer->getDeviceContext());
 		if (recordTimeTaken)
 		{
@@ -384,7 +388,7 @@ void App1::CloudMarchPass()
 		
 		if (recordTimeTaken)
 			cloudMarcherShaderTimer->StartTimer();
-		shader->compute(renderer->getDeviceContext(), ceil((int)(screenWidth / 4.0f)), ceil((int)(screenHeight / 4.0f)), 1);
+		shader->compute(renderer->getDeviceContext(), ceil((int)(cloudTextureRes.x / 4.0f)), ceil((int)(cloudTextureRes.y / 4.0f)), 1);
 		shader->unbind(renderer->getDeviceContext());
 		if (recordTimeTaken)
 		{
@@ -402,7 +406,7 @@ void App1::ReprojectionPass()
 
 	shader->setShaderParameters(renderer->getDeviceContext(), assets->cloudMarcherShader->getSRV(), assets->cloudMarcherShader->getPreviousTex(), XMMatrixTranspose(oldViewProjMatrix), XMMatrixTranspose(currentInvViewProjMatrix), reprojectionFrameCounter);
 	//shader->setShaderParameters(renderer->getDeviceContext(), assets->cloudMarcherShader->getSRV(), assets->cloudMarcherShader->getPreviousTex(), oldViewProjMatrix, currentInvViewProjMatrix, reprojectionFrameCounter);
-	shader->compute(renderer->getDeviceContext(), ceil((int)(screenWidth / 4.0f)), ceil((int)(screenHeight / 4.0f)), 1);
+	shader->compute(renderer->getDeviceContext(), ceil((int)(cloudTextureRes.x / 4.0f)), ceil((int)(cloudTextureRes.y / 4.0f)), 1);
 	shader->unbind(renderer->getDeviceContext());
 
 	oldViewProjMatrix = XMMatrixMultiply(camera->getViewMatrix(), renderer->getProjectionMatrix());
@@ -589,18 +593,18 @@ void App1::LoadAssets(HWND hwnd)
 	assets.tex3DShader = new TextureShader(device, hwnd, TextureType::TEXTURE3D);
 	assets.shapeNoiseGenShader = new WorleyNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.detailNoiseGenShader = new WorleyNoiseShader(device, hwnd, detailNoiseGenTexRes, detailNoiseGenTexRes, detailNoiseGenTexRes);
-	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, screenWidth, screenHeight, camera, light);
+	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, cloudTextureRes.x, cloudTextureRes.y, camera, light);
 	assets.depthShader = new DepthShader(device, hwnd);
 	assets.perlinNoiseShader = new PerlinNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.perlinWorleyShader = new PerlinWorleyShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.weatherMapShader = new WeatherMapShader(device, hwnd, weatherMapTexRes, weatherMapTexRes);
-	assets.temporalReprojectionShader = new TemporalReprojectionShader(device, hwnd, screenWidth, screenHeight);
+	assets.temporalReprojectionShader = new TemporalReprojectionShader(device, hwnd, cloudTextureRes.x, cloudTextureRes.y);
 
 	// Initialise Meshes
 	assets.cubeMesh = new CubeMesh(device, deviceContext);
 	assets.planeMesh = new PlaneMesh(device, deviceContext);
 	assets.screenOrthoMesh = new OrthoMesh(device, deviceContext, screenWidth, screenHeight);
-	assets.noiseGenOrthoMesh = new OrthoMesh(device, deviceContext, shapeNoiseGenTexRes * 2, shapeNoiseGenTexRes * 2);
+	assets.noiseGenOrthoMesh = new OrthoMesh(device, deviceContext, noiseOrthoMeshRes, noiseOrthoMeshRes);
 
 	// Initialise textures
 	textureMgr->loadTexture(L"brick", L"res/brick1.dds");
