@@ -86,6 +86,9 @@ private:
 	float cloudBrightness;
 	int lightSteps;
 
+	// Scatter settings
+	CloudMarcherShader::ScatterSettings scatterSettings;
+
 	// Noise data
 	bool textureGenerated;
 	bool showShapeNoiseTexture;

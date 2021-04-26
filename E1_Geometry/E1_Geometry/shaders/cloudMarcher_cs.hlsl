@@ -41,6 +41,8 @@ cbuffer LightBuffer : register(b3)
     float4 lightPos;
     float4 lightDiffuse;
     float4 lightAbsorptionData; // Absorption to sun = x, Absorption through cloud = y, Cloud Brightness = z, Marching steps = w
+    float4 inOutScatterSettings; // inScatter = x, outScatter = y, inOutScatterBlend = z, outScatterAmbient = w
+    float4 attenuationAndSilverLining; // Attenuation clamp = x, silver lining intensity = y
 }
 
 cbuffer WeatherMapBuffer : register(b4)
@@ -213,6 +215,23 @@ float PhaseFunction(float a)
     return baseBrightness + hgBlend * phaseFactor;
 }
 
+float InOutScatter(float cosAngle)
+{
+    float inScatter = inOutScatterSettings.x;
+    float outScatter = inOutScatterSettings.y;
+    float inOutBlend = inOutScatterSettings.z;
+    float silverLiningIntensity = attenuationAndSilverLining.y;
+    float silverLiningExponent = 20;
+
+    float firstHG = HenyeyGreenstein(cosAngle, inScatter);
+    float secondHG = silverLiningIntensity * pow(saturate(cosAngle), silverLiningExponent) * 0.7f;
+
+    float inScatterHG = max(firstHG, secondHG);
+    float outScatterHG = HenyeyGreenstein(cosAngle, -outScatter);
+
+    return lerp(inScatterHG, outScatterHG, inOutBlend);
+}
+
 float LightMarch(float3 pos)
 {
     // Calculate the distance from the current point to edge of the container in the direction of the light
@@ -239,7 +258,7 @@ float LightMarch(float3 pos)
     float cloudBrightness = lightAbsorptionData.z;
     //float transmittance = BeerPowderEffect(totalDensity, lightAbsTowardSun, 2.0f);
     float transmittance = BeersLaw(totalDensity * lightAbsTowardSun);
-    return saturate(cloudBrightness + transmittance * (1 - cloudBrightness));
+    return saturate(transmittance * cloudBrightness);
 }
 
 [numthreads(NUM_THREADS, NUM_THREADS, 1)]
@@ -282,7 +301,7 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
     float dstInsideBox = rayBoxInfo.y;
 
     // Phase function makes clouds brighter when looking through towards the sun
-    float phaseVal = PhaseFunction(dot(rd, -lightDir));
+    float phaseVal = InOutScatter(dot(rd, -lightDir));
 
     // Sample the blue noise to offset the distance travelled by the ray to reduce artifacting
     float blueNoiseStrength = optimisationSettings.x;

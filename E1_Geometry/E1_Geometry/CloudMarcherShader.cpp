@@ -76,6 +76,12 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	lightPtr->direction = XMFLOAT4(mainLight->getDirection().x, mainLight->getDirection().y, mainLight->getDirection().z, 0);
 	lightPtr->colour = XMFLOAT4(mainLight->getDiffuseColour().x, mainLight->getDiffuseColour().y, mainLight->getDiffuseColour().z, 0);
 	lightPtr->absorptionData = absorptionData;
+	lightPtr->inOutScatterSettings.x = scatterSettings.inScatter;
+	lightPtr->inOutScatterSettings.y = scatterSettings.outScatter;
+	lightPtr->inOutScatterSettings.z = scatterSettings.inOutScatterBlend;
+	lightPtr->inOutScatterSettings.w = scatterSettings.outScatterAmbient;
+	lightPtr->attenuationAndSilverLining.x = scatterSettings.attenuationClamp;
+	lightPtr->attenuationAndSilverLining.y = scatterSettings.silverLiningIntensity;
 	dc->Unmap(lightBuffer, 0);
 
 	// Fill weather buffer

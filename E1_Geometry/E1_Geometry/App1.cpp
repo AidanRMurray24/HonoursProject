@@ -73,7 +73,7 @@ App1::App1()
 	// Absorption settings
 	lightAbsTowardsSun = 0.84f;
 	lightAbsThroughCloud = 0.84f;
-	cloudBrightness = 0.15f;
+	cloudBrightness = 0.7f;
 	lightSteps = 4;
 
 	// Light settings
@@ -505,7 +505,7 @@ void App1::gui()
 	CloudMarcherShader* cloudShader = assets->cloudMarcherShader;
 	if (ImGui::CollapsingHeader("Cloud Settings"))
 	{
-		ImGui::BeginChild("", ImVec2(0, 150), true, ImGuiWindowFlags_None);
+		ImGui::BeginChild("", ImVec2(0, 0), true, ImGuiWindowFlags_None);
 
 		if (ImGui::CollapsingHeader("Shape Noise"))
 		{
@@ -548,25 +548,44 @@ void App1::gui()
 	cloudShader->SetStepSize(stepSize);
 	cloudShader->SetEdgeFadePercentage(edgeFadePercent);
 
-	// Absorbtion Settings
-	if (ImGui::CollapsingHeader("Absoption Settings"))
+	// Light Settings
+	if (ImGui::CollapsingHeader("Light Settings"))
 	{
-		ImGui::SliderFloat("AbsTowardsSun", &lightAbsTowardsSun, 0, 1);
-		ImGui::SliderFloat("AbsThroughCloud", &lightAbsThroughCloud, 0, 1);
-		ImGui::SliderFloat("CloudBrightness", &cloudBrightness, 0, 1);
-		ImGui::SliderInt("LightSteps", &lightSteps, 0, 100);
+		ImGui::BeginChild("", ImVec2(0, 0), true, ImGuiWindowFlags_None);
+
+		if (ImGui::CollapsingHeader("Colour"))
+		{
+			ImGui::ColorPicker3("Colour", lightColour);
+			light->setDiffuseColour(lightColour[0], lightColour[1], lightColour[2], 1.0f);
+		}
+
+		// Absorbtion Settings
+		if (ImGui::CollapsingHeader("Absoption Settings"))
+		{
+			ImGui::SliderFloat("AbsTowardsSun", &lightAbsTowardsSun, 0, 1);
+			ImGui::SliderFloat("AbsThroughCloud", &lightAbsThroughCloud, 0, 1);
+			ImGui::SliderFloat("CloudBrightness", &cloudBrightness, 0, 1);
+			ImGui::SliderInt("LightSteps", &lightSteps, 0, 100);
+		}
+
+		// Scattering
+		if (ImGui::CollapsingHeader("Scatter Settings"))
+		{
+			ImGui::SliderFloat("In Scatter", &scatterSettings.inScatter, 0, 1);
+			ImGui::SliderFloat("Out Scatter", &scatterSettings.outScatter, 0, 1);
+			ImGui::SliderFloat("In Out Blend", &scatterSettings.inOutScatterBlend, 0, 1);
+			ImGui::SliderFloat("Silver Lining Intensity", &scatterSettings.silverLiningIntensity, 0, 50);
+			ImGui::SliderFloat("Out Scatter Ambient", &scatterSettings.outScatterAmbient, 0, 1);
+			ImGui::SliderFloat("Attenuation Clamp", &scatterSettings.attenuationClamp, 0, 1);
+		}
+
+		ImGui::EndChild();
 	}
 	cloudShader->SetLightAbsTowardsSun(lightAbsTowardsSun);
 	cloudShader->SetLightAbsThroughCloud(lightAbsThroughCloud);
 	cloudShader->SetCloudBrightness(cloudBrightness);
 	cloudShader->SetLightMarchSteps(lightSteps);
-
-	// Light Settings
-	if (ImGui::CollapsingHeader("Light Settings"))
-	{
-		ImGui::ColorPicker3("Colour", lightColour);
-		light->setDiffuseColour(lightColour[0], lightColour[1], lightColour[2], 1.0f);
-	}
+	cloudShader->SetScatterSettings(scatterSettings);
 
 	// Weather Map settings
 	if (ImGui::CollapsingHeader("Weather Map Settings"))

@@ -15,6 +15,16 @@ public:
 		float intensity = 0.5f;
 	};
 
+	struct ScatterSettings
+	{
+		float inScatter = 0;
+		float outScatter = 0;
+		float silverLiningIntensity = 10;
+		float inOutScatterBlend = 0;
+		float outScatterAmbient = 0;
+		float attenuationClamp = 0;
+	};
+
 private:
 	struct CameraBufferType
 	{
@@ -47,6 +57,8 @@ private:
 		XMFLOAT4 position;
 		XMFLOAT4 colour;
 		XMFLOAT4 absorptionData; // Absorption to sun = x, Absorption through cloud = y, Cloud Brightness = z, Marching steps = w
+		XMFLOAT4 inOutScatterSettings; // inScatter = x, outScatter = y, inOutScatterBlend = z, outScatterAmbient = w
+		XMFLOAT4 attenuationAndSilverLining; // Attenuation clamp = x, silver lining intensity = y
 	};
 
 	struct WeatherMapBufferType
@@ -111,6 +123,7 @@ public:
 	inline void SetBlueNoiseStrength(float val) { cloudSettings.optimisationSettings.x = val; }
 	inline void SetReprojectionFrame(int val) { cloudSettings.optimisationSettings.y = val; }
 	inline void SetTemporalReprojection(bool val) { cloudSettings.optimisationSettings.z = val; }
+	inline void SetScatterSettings(ScatterSettings val) { scatterSettings = val; }
 
 private:
 	void initShader(const wchar_t* cfile, const wchar_t* blank);
@@ -151,5 +164,8 @@ private:
 
 	// Weather Map Settings
 	WeatherMapTextureSettings weatherRedChannel;
+
+	// Scatter settings
+	ScatterSettings scatterSettings;
 };
 
