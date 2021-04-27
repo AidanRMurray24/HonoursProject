@@ -42,7 +42,7 @@ cbuffer LightBuffer : register(b3)
     float4 lightDiffuse;
     float4 lightAbsorptionData; // Absorption to sun = x, Absorption through cloud = y, Cloud Brightness = z, Marching steps = w
     float4 inOutScatterSettings; // inScatter = x, outScatter = y, inOutScatterBlend = z, outScatterAmbient = w
-    float4 attenuationAndSilverLining; // Attenuation clamp = x, silver lining intensity = y
+    float4 attenuationSilverLiningAndExponent; // Attenuation clamp = x, silver lining intensity = y, silver lining exponent = z
 }
 
 cbuffer WeatherMapBuffer : register(b4)
@@ -129,9 +129,18 @@ float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 ra
     return float2(dstToBox, dstInsideBox);
 }
 
-float remap(float v, float minOld, float maxOld, float minNew, float maxNew)
+float ReMap(float v, float minOld, float maxOld, float minNew, float maxNew)
 {
     return minNew + (v - minOld) * (maxNew - minNew) / (maxOld - minOld);
+}
+
+float GetBlueNoiseOffset(float2 uv, float2 resolution)
+{
+    // Sample the blue noise to offset the distance travelled by the ray to reduce artifacting
+    float blueNoiseStrength = optimisationSettings.x;
+    float dstOffset = blueNoiseTex.SampleLevel(sampler0, uv * resolution / 500.0f, 0).r;
+    dstOffset *= blueNoiseStrength;
+    return dstOffset;
 }
 
 float SampleDensity(float3 pos)
@@ -157,7 +166,7 @@ float SampleDensity(float3 pos)
     float heightPercent = ((pos.y - containerBoundsMin.y) / size.y) /** weatherMapCoverage*/;
     float gMin = .2;
     float gMax = .7;
-    heightGradient = saturate(remap(heightPercent, 0.0, gMin, 0, 1)) * saturate(remap(heightPercent, 1, gMax, 0, 1));
+    heightGradient = saturate(ReMap(heightPercent, 0.0, gMin, 0, 1)) * saturate(ReMap(heightPercent, 1, gMax, 0, 1));
     heightGradient *= edgeFade;
 
     // Sample the shape noise texture at the current point
@@ -192,43 +201,33 @@ float BeersLaw(float depth)
     return exp(-depth);
 }
 
-float PowderEffect(float depth)
-{
-    return (1.0f - exp(-depth * 2.0f));
-}
-
-float BeerPowderEffect(float depth, float absorbtion, float strength = 2.0f)
-{
-    return strength * BeersLaw(depth * absorbtion) * PowderEffect(depth);
-}
-
 float HenyeyGreenstein(float cosAngle, float g)
 {
     float g2 = g * g;
     return (1 - g2) / (4 * 3.1415 * pow(1 + g2 - 2 * g * cosAngle, 1.5));
 }
 
-float PhaseFunction(float a)
-{
-    float inScattering = 0.857f, outScattering = 0.278f, baseBrightness = 1.f, phaseFactor = 0.385, blendFactor = .5f;
-    float hgBlend = HenyeyGreenstein(a, inScattering) * (1 - blendFactor) + HenyeyGreenstein(a, -outScattering) * blendFactor;
-    return baseBrightness + hgBlend * phaseFactor;
-}
-
+// Adapted from Haggstrom (2018) http://www.diva-portal.org/smash/get/diva2:1223894/FULLTEXT01.pdf
 float InOutScatter(float cosAngle)
 {
+    // Get values from buffers
     float inScatter = inOutScatterSettings.x;
     float outScatter = inOutScatterSettings.y;
     float inOutBlend = inOutScatterSettings.z;
-    float silverLiningIntensity = attenuationAndSilverLining.y;
-    float silverLiningExponent = 20;
+    float silverLiningIntensity = attenuationSilverLiningAndExponent.y;
+    float silverLiningExponent = attenuationSilverLiningAndExponent.z;
 
+    // Calculate the in scatter probability 
     float firstHG = HenyeyGreenstein(cosAngle, inScatter);
-    float secondHG = silverLiningIntensity * pow(saturate(cosAngle), silverLiningExponent) * 0.7f;
+    float secondHG = silverLiningIntensity * pow(saturate(cosAngle), silverLiningExponent); // For adding a more centralised intensity around the sun
 
+    // Get the highest intensity value for the in scattering
     float inScatterHG = max(firstHG, secondHG);
+
+    // Out scatter is then calculated using the Henyey Greenstein function with the negitive value for the out scatter as out scatter bounces back in the direction of the light source.
     float outScatterHG = HenyeyGreenstein(cosAngle, -outScatter);
 
+    // Return the interpolated value between the scatter values to strike a balance between how much light is scattered in and out from the clouds
     return lerp(inScatterHG, outScatterHG, inOutBlend);
 }
 
@@ -241,14 +240,14 @@ float LightMarch(float3 pos)
     // March to the light
     int lightSteps = lightAbsorptionData.w;
     float stepSize = densitySettings.w;
-    float totalDensity = 0;
+    float densityToSun = 0;
     float dstTravelled = 0;
     int stepCounter = 0;
     while (dstTravelled < dstInsideBox && stepCounter < lightSteps) // Exit if the ray is travelling outside the box or the number of steps is past the max
     {
         // Sample the density at the current step
         pos += dirToLight * stepSize;
-        totalDensity += max(0, SampleDensity(pos) * stepSize);
+        densityToSun += max(0, SampleDensity(pos) * stepSize);
         dstTravelled += stepSize;
         stepCounter++;
     } 
@@ -256,8 +255,7 @@ float LightMarch(float3 pos)
     // Use the beer-powder effect to calculate the transmittance of the light as it passes through the container
     float lightAbsTowardSun = lightAbsorptionData.x;
     float cloudBrightness = lightAbsorptionData.z;
-    //float transmittance = BeerPowderEffect(totalDensity, lightAbsTowardSun, 2.0f);
-    float transmittance = BeersLaw(totalDensity * lightAbsTowardSun);
+    float transmittance = BeersLaw(densityToSun * lightAbsTowardSun);
     return saturate(transmittance * cloudBrightness);
 }
 
@@ -301,16 +299,14 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
     float dstInsideBox = rayBoxInfo.y;
 
     // Phase function makes clouds brighter when looking through towards the sun
-    float phaseVal = InOutScatter(dot(rd, -lightDir));
+    float cosAngle = dot(rd, -lightDir);
+    float phaseVal = InOutScatter(cosAngle);
 
-    // Sample the blue noise to offset the distance travelled by the ray to reduce artifacting
-    float blueNoiseStrength = optimisationSettings.x;
-    float dstOffset = blueNoiseTex.SampleLevel(sampler0, uv * resolution / 500.0f, 0).r;
-    dstOffset *= blueNoiseStrength;
+    float blueNoiseOffset = GetBlueNoiseOffset(uv, resolution);
 
     // Ray marching
     int numSteps = densitySettings.z;
-    float dstTravelled = dstOffset;
+    float dstTravelled = blueNoiseOffset;
     float lightExtinction = 1;
     float lightEnergy = 0;
     float lightAbsThroughCloud = lightAbsorptionData.y;
@@ -327,10 +323,10 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
         if (density > 0)
         {
             // Add on the light energy transmittence at the current sample point
-            float lightTransmittance = LightMarch(rayPos) * phaseVal;
+            float lightTransmittance = LightMarch(rayPos) + phaseVal;
             lightEnergy += lightTransmittance * lightExtinction * density * stepSize;
 
-            // Use beers law instead of beer-powder here as beer-powder is only applied when marching towards the light
+            // Calculate the extinction of light at this density point using beer's law
             lightExtinction *= BeersLaw(density * lightAbsThroughCloud * stepSize);
 
             // If the lightExtinction is very low, sampling won't effect much, so break

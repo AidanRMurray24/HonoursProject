@@ -17,10 +17,11 @@ public:
 
 	struct ScatterSettings
 	{
-		float inScatter = 0;
-		float outScatter = 0;
+		float inScatter = 0.857f;
+		float outScatter = 0.278f;
 		float silverLiningIntensity = 10;
-		float inOutScatterBlend = 0;
+		float silverLiningExponent = 20;
+		float inOutScatterBlend = .88f;
 		float outScatterAmbient = 0;
 		float attenuationClamp = 0;
 	};

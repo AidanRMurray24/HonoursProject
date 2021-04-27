@@ -575,6 +575,7 @@ void App1::gui()
 			ImGui::SliderFloat("Out Scatter", &scatterSettings.outScatter, 0, 1);
 			ImGui::SliderFloat("In Out Blend", &scatterSettings.inOutScatterBlend, 0, 1);
 			ImGui::SliderFloat("Silver Lining Intensity", &scatterSettings.silverLiningIntensity, 0, 50);
+			ImGui::SliderFloat("Silver Lining Exponent", &scatterSettings.silverLiningExponent, 0, 50);
 			ImGui::SliderFloat("Out Scatter Ambient", &scatterSettings.outScatterAmbient, 0, 1);
 			ImGui::SliderFloat("Attenuation Clamp", &scatterSettings.attenuationClamp, 0, 1);
 		}
