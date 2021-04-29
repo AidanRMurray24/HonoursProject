@@ -103,11 +103,15 @@ private:
 	WorleyNoiseShader::WorleyNoiseSettings detailNoiseSettings;
 	float blueNoiseOffsetStrength;
 	float noiseOrthoMeshRes;
+	float shapeWeights[4];
+	float detailWeights[3];
 
 	// Weather Map settings
 	bool showWeatherMap;
 	int weatherMapTexRes;
 	CloudMarcherShader::WeatherMapTextureSettings coverageTexSettings;
+	CloudMarcherShader::WeatherMapTextureSettings heightTexSettings;
+	float weatherChannelIntensities[4];
 
 	// Light Settings
 	float lightColour[3];

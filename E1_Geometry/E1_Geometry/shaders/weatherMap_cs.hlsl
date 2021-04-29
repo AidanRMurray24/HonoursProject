@@ -113,8 +113,9 @@ void main(int3 id : SV_DispatchThreadID)
 	float2 uv = id / (float)resolution;
 
 	float coverageNoise = LayeredPerlinNoise(uv, 8, 8, 2, 0.5f);
-	float cloudTypeNoise = LayeredPerlinNoise(uv, 16, 8, 2, 0.5f);
+	float cloudTypeNoise = LayeredPerlinNoise(uv, 16, 4, 2, 0.5f);
 
-	float4 colour = float4(coverageNoise, cloudTypeNoise, coverageNoise, 0);
-	Result[id.xy] = colour;
+	// Subtract each of the noise values from each other to give a more varied noise pattern
+	float4 colour = float4(coverageNoise - cloudTypeNoise, cloudTypeNoise - coverageNoise, 0, 0) + .1f;
+	Result[id.xy] = saturate(colour);
 }

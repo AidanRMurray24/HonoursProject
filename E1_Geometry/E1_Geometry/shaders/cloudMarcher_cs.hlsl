@@ -48,6 +48,7 @@ cbuffer LightBuffer : register(b3)
 cbuffer WeatherMapBuffer : register(b4)
 {
     float4 coverageTexTransform; // Offset = (x,y,z), Scale = w
+    float4 heightTexTransform; // Offset = (x,y,z), Scale = w
     float4 weatherMapIntensities; // Channel intensities
 };
 
@@ -158,14 +159,19 @@ float SampleDensity(float3 pos)
     float dstToEdgeZ = min(containerEdgeFadeDst, min(pos.z - containerBoundsMin.z, containerBoundsMax.z - pos.z));
     float edgeFade = min(dstToEdgeX, dstToEdgeZ) / containerEdgeFadeDst;
 
+    // Sample the weather map for the coverage and height at the current pos
+    float2 coverageSamplePos = pos.zx / coverageTexTransform.w + coverageTexTransform.xy;
+    float4 coverageSample = weatherMapTex.SampleLevel(sampler0, coverageSamplePos, 0) * weatherMapIntensities.r;
+    float2 heightSamplePos = pos.zx / heightTexTransform.w + heightTexTransform.xy;
+    float4 heightSample = weatherMapTex.SampleLevel(sampler0, heightSamplePos, 0) * weatherMapIntensities.g;
+
     // Calculate how high the clouds render
     float heightGradient = 0;
     float3 size = containerBoundsMax - containerBoundsMin;
-    /*float2 weatherMapSamplePos = pos.zx / coverageTexTransform.w + coverageTexTransform.xy;
-    float weatherMapCoverage = weatherMapTex.SampleLevel(sampler0, weatherMapSamplePos, 0).r;*/
-    float heightPercent = ((pos.y - containerBoundsMin.y) / size.y) /** weatherMapCoverage*/;
+    float heightPercent = ((pos.y - containerBoundsMin.y) / size.y);
     float gMin = .2;
-    float gMax = .7;
+    float gMax = saturate(gMin + heightSample.g);
+
     heightGradient = saturate(ReMap(heightPercent, 0.0, gMin, 0, 1)) * saturate(ReMap(heightPercent, 1, gMax, 0, 1));
     heightGradient *= edgeFade;
 
@@ -175,7 +181,8 @@ float SampleDensity(float3 pos)
     float shapeFBM = dot(shapeNoise, normalisedWeights) * heightGradient * (1 - heightPercent); // Multiplied by 1 - height percent to make the bottom of the clouds more wispy looking
 
     // Calculate the density of the shape noise
-    float shapeDensity = shapeFBM - (1 - globalCoverage);
+    float coverage = 1 - (globalCoverage + coverageSample.r);
+    float shapeDensity = saturate(shapeFBM - coverage);
 
     // If the shape density is not greater than 0 there is no need to calculate the details
     if (shapeDensity > 0)
@@ -231,7 +238,7 @@ float InOutScatter(float cosAngle)
     return lerp(inScatterHG, outScatterHG, inOutBlend);
 }
 
-float LightMarch(float3 pos)
+float LightMarch(float3 pos, float blueNoiseOffset)
 {
     // Calculate the distance from the current point to edge of the container in the direction of the light
     float3 dirToLight = -lightDir.xyz;
@@ -241,7 +248,7 @@ float LightMarch(float3 pos)
     int lightSteps = lightAbsorptionData.w;
     float stepSize = densitySettings.w;
     float densityToSun = 0;
-    float dstTravelled = 0;
+    float dstTravelled = blueNoiseOffset;
     int stepCounter = 0;
     while (dstTravelled < dstInsideBox && stepCounter < lightSteps) // Exit if the ray is travelling outside the box or the number of steps is past the max
     {
@@ -282,11 +289,15 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
     // Get the UVs of the screen
     float2 resolution = float2(0, 0);
     Result.GetDimensions(resolution.x, resolution.y);
-    float2 uv = (id.xy / resolution) * 2 - 1;
-    uv *= float2(1, -1);
+    float2 uv = id.xy / resolution;
 
     // Set the colour to the source render texture initially
-    float4 col = Source[id.xy];
+    float4 col = Source.SampleLevel(sampler0, uv, 0);
+
+    // Convert UVs to have (0,0) at the centre of the screen
+    uv = uv * 2 - 1;
+    uv *= float2(1, -1);
+
 
     // Calculate the ray origin and direction
     Ray cameraRay = CreateCameraRay(uv);
@@ -323,7 +334,7 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
         if (density > 0)
         {
             // Add on the light energy transmittence at the current sample point
-            float lightTransmittance = LightMarch(rayPos) + phaseVal;
+            float lightTransmittance = LightMarch(rayPos, blueNoiseOffset) + phaseVal;
             lightEnergy += lightTransmittance * lightExtinction * density * stepSize;
 
             // Calculate the extinction of light at this density point using beer's law

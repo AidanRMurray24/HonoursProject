@@ -65,6 +65,7 @@ private:
 	struct WeatherMapBufferType
 	{
 		XMFLOAT4 coverageTexTransform; // Offset = (x,y,z), Scale = w
+		XMFLOAT4 heightTexTransform; // Offset = (x,y,z), Scale = w
 		XMFLOAT4 weatherMapIntensities; // Channel intensities
 	};
 
@@ -165,6 +166,7 @@ private:
 
 	// Weather Map Settings
 	WeatherMapTextureSettings weatherRedChannel;
+	WeatherMapTextureSettings weatherGreenChannel;
 
 	// Scatter settings
 	ScatterSettings scatterSettings;

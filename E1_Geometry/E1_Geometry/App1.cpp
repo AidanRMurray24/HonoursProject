@@ -84,6 +84,10 @@ App1::App1()
 	// Weather map settings
 	showWeatherMap = false;
 	weatherMapTexRes = 128;
+	weatherChannelIntensities[0] = 0.5f;
+	weatherChannelIntensities[1] = 0.5f;
+	weatherChannelIntensities[2] = 0;
+	weatherChannelIntensities[3] = 0;
 
 	// Terrain settings
 	showTerrain = false;
@@ -106,7 +110,6 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	light = new Light;
 	light->setPosition(0, 0, 0);
 	light->setDiffuseColour(1.0f, 0.9f, 0.8f, 1.0f);
-	//light->setDiffuseColour(1.0f, 1, 1, 1.0f);
 	light->setDirection(0.7f, -0.7f, 0.0f);
 
 	LoadAssets(hwnd);
@@ -181,8 +184,15 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	}
 
 	// Set noise weights for the cloud marcher shader
-	assets->cloudMarcherShader->SetShapeNoiseWeights(XMFLOAT4(1, 0.625f, 0.25f, 0.125f));
-	assets->cloudMarcherShader->SetDetailNoiseWeights(XMFLOAT4(0.625f, 0.25f, 0.125f, 0.f));
+	shapeWeights[0] = 1;
+	shapeWeights[1] = 0.625f;
+	shapeWeights[2] = 0.25f;
+	shapeWeights[3] = 0.125f;
+	assets->cloudMarcherShader->SetShapeNoiseWeights(XMFLOAT4(shapeWeights[0], shapeWeights[1], shapeWeights[2], shapeWeights[3]));
+	detailWeights[0] = 0.625f;
+	detailWeights[1] = 0.25f;
+	detailWeights[2] = 0.125f;
+	assets->cloudMarcherShader->SetDetailNoiseWeights(XMFLOAT4(detailWeights[0], detailWeights[1], detailWeights[2], 0.f));
 
 	// Initialise timers
 	cloudMarcherShaderTimer = new GPUTimer(renderer->getDevice(), renderer->getDeviceContext());
@@ -489,23 +499,31 @@ void App1::gui()
 	ImGui::Checkbox("Show Terrain", &showTerrain);
 
 	//ImGui::ShowDemoWindow();
+	
+	CloudMarcherShader* cloudShader = assets->cloudMarcherShader;
 
 	// Noise settings
 	if (ImGui::CollapsingHeader("Noise Settings"))
 	{
+		ImGui::BeginChild("1", ImVec2(0, 150), true, ImGuiWindowFlags_None);
+
 		ImGui::Checkbox("ShowShapeNoiseTexture", &showShapeNoiseTexture);
 		ImGui::Checkbox("ShowDetailNoiseTexture", &showDetailNoiseTexture);
 		ImGui::Checkbox("ShowPerlinNoiseTexture", &showPerlinNoiseTexture);
 		ImGui::Checkbox("Use Perlin", &usePerlinNoise);
 		ImGui::SliderFloat("TileValue", &tileVal, 0, 10);
 		ImGui::SliderFloat("Slice", &sliceVal, 0, 1);
+		ImGui::SliderFloat4("Shape Noise Weights", shapeWeights, 0, 1);
+		ImGui::SliderFloat3("Detail Noise Weights", detailWeights, 0, 1);
+		ImGui::EndChild();
 	}
+	cloudShader->SetShapeNoiseWeights(XMFLOAT4(shapeWeights[0], shapeWeights[1], shapeWeights[2], shapeWeights[3]));
+	cloudShader->SetDetailNoiseWeights(XMFLOAT4(detailWeights[0], detailWeights[1], detailWeights[2], 0.f));
 
 	// Cloud settings
-	CloudMarcherShader* cloudShader = assets->cloudMarcherShader;
 	if (ImGui::CollapsingHeader("Cloud Settings"))
 	{
-		ImGui::BeginChild("", ImVec2(0, 0), true, ImGuiWindowFlags_None);
+		ImGui::BeginChild("2", ImVec2(0, 150), true, ImGuiWindowFlags_None);
 
 		if (ImGui::CollapsingHeader("Shape Noise"))
 		{
@@ -551,7 +569,10 @@ void App1::gui()
 	// Light Settings
 	if (ImGui::CollapsingHeader("Light Settings"))
 	{
-		ImGui::BeginChild("", ImVec2(0, 0), true, ImGuiWindowFlags_None);
+		ImGui::BeginChild("3", ImVec2(0, 150), true, ImGuiWindowFlags_None);
+
+		ImGui::SliderFloat("CloudBrightness", &cloudBrightness, 0, 1);
+		ImGui::SliderInt("LightSteps", &lightSteps, 0, 100);
 
 		if (ImGui::CollapsingHeader("Colour"))
 		{
@@ -564,8 +585,6 @@ void App1::gui()
 		{
 			ImGui::SliderFloat("AbsTowardsSun", &lightAbsTowardsSun, 0, 1);
 			ImGui::SliderFloat("AbsThroughCloud", &lightAbsThroughCloud, 0, 1);
-			ImGui::SliderFloat("CloudBrightness", &cloudBrightness, 0, 1);
-			ImGui::SliderInt("LightSteps", &lightSteps, 0, 100);
 		}
 
 		// Scattering
@@ -593,8 +612,13 @@ void App1::gui()
 	{
 		ImGui::Checkbox("Show Weather Map", &showWeatherMap);
 		ImGui::SliderFloat("CoverageTexScale", &coverageTexSettings.scale, 1, 1000);
+		ImGui::SliderFloat("HeightTexScale", &heightTexSettings.scale, 1, 1000);
+		ImGui::SliderFloat4("Channel Intensities", weatherChannelIntensities, 0, 1);
 	}
+	coverageTexSettings.intensity = weatherChannelIntensities[0];
+	heightTexSettings.intensity = weatherChannelIntensities[1];
 	cloudShader->SetWeatherMapTexSettings(coverageTexSettings, TextureChannel::RED);
+	cloudShader->SetWeatherMapTexSettings(heightTexSettings, TextureChannel::GREEN);
 
 	// Render UI
 	ImGui::Render();

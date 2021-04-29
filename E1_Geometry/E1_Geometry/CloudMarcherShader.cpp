@@ -90,7 +90,8 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	dc->Map(weatherBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mappedResource);
 	weatherPtr = (WeatherMapBufferType*)mappedResource.pData;
 	weatherPtr->coverageTexTransform = XMFLOAT4(weatherRedChannel.offset.x, weatherRedChannel.offset.y, weatherRedChannel.offset.z, weatherRedChannel.scale);
-	weatherPtr->weatherMapIntensities = XMFLOAT4(weatherRedChannel.intensity, 0, 0, 0);
+	weatherPtr->heightTexTransform = XMFLOAT4(weatherGreenChannel.offset.x, weatherGreenChannel.offset.y, weatherGreenChannel.offset.z, weatherGreenChannel.scale);
+	weatherPtr->weatherMapIntensities = XMFLOAT4(weatherRedChannel.intensity, weatherGreenChannel.intensity, 0, 0);
 	dc->Unmap(weatherBuffer, 0);
 	
 	// Set buffer data to shader
@@ -184,7 +185,7 @@ void CloudMarcherShader::SaveLastFrame(ID3D11DeviceContext* dc)
 	dc->CopyResource(previousFrameResource, srvOutPutResource);
 }
 
-void CloudMarcherShader::SetWeatherMapTexSettings(WeatherMapTextureSettings settings, TextureChannel channel)
+void CloudMarcherShader::SetWeatherMapTexSettings(CloudMarcherShader::WeatherMapTextureSettings settings, TextureChannel channel)
 {
 	switch (channel)
 	{
@@ -192,6 +193,7 @@ void CloudMarcherShader::SetWeatherMapTexSettings(WeatherMapTextureSettings sett
 		weatherRedChannel = settings;
 		break;
 	case TextureChannel::GREEN:
+		weatherGreenChannel = settings;
 		break;
 	case TextureChannel::BLUE:
 		break;
