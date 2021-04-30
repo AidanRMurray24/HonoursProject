@@ -28,7 +28,6 @@ protected:
 	void GenerateWeatherMap();
 	void GenerateNoiseTextures();
 	void GeometryPass();
-	void DepthPass();
 	void CloudMarchPass();
 	void ReprojectionPass();
 	void FinalPass();
@@ -41,7 +40,6 @@ private:
 
 	// Render textures
 	RenderTexture* sceneRT;
-	RenderTexture* sceneDepthRT;
 	RenderTexture* cloudFragRT;
 	
 	// Lights

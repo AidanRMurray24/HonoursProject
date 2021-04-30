@@ -71,7 +71,7 @@ public:
 	CloudMarcherShader(ID3D11Device* device, HWND hwnd, int _screenWidth, int _screenHeight, Camera* _cam, Light* _mainLight);
 	~CloudMarcherShader();
 
-	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex, ID3D11ShaderResourceView* weatherMap, ID3D11ShaderResourceView* blueNoise, const XMMATRIX& projectionMatrix, CloudContainer* container);
+	void setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex, ID3D11ShaderResourceView* weatherMap, ID3D11ShaderResourceView* blueNoise, const XMMATRIX& projectionMatrix, CloudContainer* container);
 	void createGPUViews();
 	void unbind(ID3D11DeviceContext* dc);
 

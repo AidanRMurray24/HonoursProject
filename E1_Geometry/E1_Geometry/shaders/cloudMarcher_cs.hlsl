@@ -3,12 +3,11 @@
 SamplerState sampler0 : register(s0);
 RWTexture2D<float4> Result : register(u0);
 Texture2D<float4> Source : register(t0);
-Texture2D<float4> depthMap : register(t1);
-Texture3D<float4> shapeNoiseTex : register(t2);
-Texture3D<float4> detailNoiseTex : register(t3);
-Texture2D<float4> weatherMapTex : register(t4);
-Texture2D<float4> blueNoiseTex : register(t5);
-Texture2D<float4> previousFrameTex : register(t6);
+Texture3D<float4> shapeNoiseTex : register(t1);
+Texture3D<float4> detailNoiseTex : register(t2);
+Texture2D<float4> weatherMapTex : register(t3);
+Texture2D<float4> blueNoiseTex : register(t4);
+Texture2D<float4> previousFrameTex : register(t5);
 
 cbuffer CameraBuffer : register(b0)
 {
@@ -63,29 +62,6 @@ float3 GetViewVector(float2 uv)
     float3 viewVector = mul(invProjectionMatrix, float4(uv, 0, 1)).xyz;
     viewVector = mul(invViewMatrix, float4(viewVector, 0)).xyz;
     return viewVector;
-}
-
-float GetLinearDepth(float2 uv)
-{
-    float nonLinearDepth = depthMap.SampleLevel(sampler0, uv, 0);
-    float near = 0.1f;
-    float far = 1000.f;
-    float linearDepth = (2.0f * near) / (far + near - nonLinearDepth * (far - near));
-    return linearDepth;
-}
-
-float LinearEyeDepth(float z)
-{
-    z = 1 - z;
-    float near = 0.1f;
-    float far = 1000.f;
-    float4 _ZBufferParams;
-    _ZBufferParams.x = -1 + far / near;
-    _ZBufferParams.y = 1;
-    _ZBufferParams.z = _ZBufferParams.x / far;
-    _ZBufferParams.w = 1 / far;
-
-    return 1.0 / (_ZBufferParams.z * z + _ZBufferParams.w);
 }
 
 Ray CreateRay(float3 origin, float3 direction) 
@@ -171,7 +147,6 @@ float SampleDensity(float3 pos)
     float heightPercent = ((pos.y - containerBoundsMin.y) / size.y);
     float gMin = .2;
     float gMax = saturate(gMin + heightSample.g);
-
     heightGradient = saturate(ReMap(heightPercent, 0.0, gMin, 0, 1)) * saturate(ReMap(heightPercent, 1, gMax, 0, 1));
     heightGradient *= edgeFade;
 
@@ -249,14 +224,16 @@ float LightMarch(float3 pos, float blueNoiseOffset)
     float stepSize = densitySettings.w;
     float densityToSun = 0;
     float dstTravelled = blueNoiseOffset;
-    int stepCounter = 0;
-    while (dstTravelled < dstInsideBox && stepCounter < lightSteps) // Exit if the ray is travelling outside the box or the number of steps is past the max
+    for (int i = 0; i < lightSteps; i++)
     {
         // Sample the density at the current step
         pos += dirToLight * stepSize;
         densityToSun += max(0, saturate(SampleDensity(pos) * stepSize));
         dstTravelled += stepSize;
-        stepCounter++;
+
+        // Break early if ray has travelled outside of the box
+        if (dstTravelled > dstInsideBox)
+            break;
     } 
 
     // Use the beer-powder effect to calculate the transmittance of the light as it passes through the container
@@ -308,29 +285,31 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
     float dstToBox = rayBoxInfo.x;
     float dstInsideBox = rayBoxInfo.y;
 
-    // Phase function makes clouds brighter when looking through towards the sun
+    // Phase function that makes clouds brighter when looking through towards the sun
     float cosAngle = dot(rd, -lightDir);
     float phaseVal = InOutScatter(cosAngle);
 
+    // Blue noise which can be used to offset the marching ray's travel distance to reduce artifacting with large step values
     float blueNoiseOffset = GetBlueNoiseOffset(uv, resolution);
 
-    // Ray marching
+    // Get values from buffers
     int numSteps = densitySettings.z;
+    float stepSize = densitySettings.w;
+    float lightAbsThroughCloud = lightAbsorptionData.y;
+
+    // Ray marching
     float dstTravelled = blueNoiseOffset;
     float lightExtinction = 1;
     float lightEnergy = 0;
-    float lightAbsThroughCloud = lightAbsorptionData.y;
-    float stepSize = densitySettings.w;
-    float3 entryPoint = ro + rd * dstToBox;     // Point of intersection with the cloud container
-    int stepCounter = 0;
-    while (dstTravelled < dstInsideBox && stepCounter < numSteps)  // Exit if the ray is travelling outside the box or the number of steps is past the max
+    float3 startPos = ro + rd * dstToBox; // First point of intersection with the cloud container
+    for (int i = 0; i < numSteps; i++)
     {
         // March ray inside the box
-        float3 rayPos = entryPoint + rd * dstTravelled;
+        float3 rayPos = startPos + rd * dstTravelled;
         float density = SampleDensity(rayPos);
 
         // Only update the values if the density sampled is greater than zero
-        if (density > 0)
+        if (density > 0.0f)
         {
             // Add on the light energy transmittence at the current sample point
             float lightTransmittance = LightMarch(rayPos, blueNoiseOffset) + phaseVal;
@@ -340,13 +319,16 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
             lightExtinction *= BeersLaw(density * lightAbsThroughCloud * stepSize);
 
             // If the lightExtinction is very low, sampling won't effect much, so break
-            if (lightExtinction < 0.01)
+            if (lightExtinction < 0.01f)
                 break;
         }
 
-        // Increment the travel distance and the step counter
+        // Increment the travel distance
         dstTravelled += stepSize;
-        stepCounter++;
+
+        // Break early if ray has travelled outside of the box
+        if (dstTravelled > dstInsideBox)
+            break;
     } 
 
     // Calculate the final colour of the clouds

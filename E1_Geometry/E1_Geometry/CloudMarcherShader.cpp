@@ -25,7 +25,7 @@ CloudMarcherShader::~CloudMarcherShader()
 {
 }
 
-void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* depthMap, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex, ID3D11ShaderResourceView* weatherMap, ID3D11ShaderResourceView* blueNoise, const XMMATRIX& projectionMatrix, CloudContainer* container)
+void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11ShaderResourceView* sourceTexture, ID3D11ShaderResourceView* shapeNoiseTex, ID3D11ShaderResourceView* detailNoiseTex, ID3D11ShaderResourceView* weatherMap, ID3D11ShaderResourceView* blueNoise, const XMMATRIX& projectionMatrix, CloudContainer* container)
 {
 	// Pass in buffer data
 	D3D11_MAPPED_SUBRESOURCE mappedResource;
@@ -101,12 +101,11 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 
 	// Pass the source texture and the texture to be modified to the shader
 	dc->CSSetShaderResources(0, 1, &sourceTexture);
-	dc->CSSetShaderResources(1, 1, &depthMap);
-	dc->CSSetShaderResources(2, 1, &shapeNoiseTex);
-	dc->CSSetShaderResources(3, 1, &detailNoiseTex);
-	dc->CSSetShaderResources(4, 1, &weatherMap);
-	dc->CSSetShaderResources(5, 1, &blueNoise);
-	dc->CSSetShaderResources(6, 1, &previousFrame);
+	dc->CSSetShaderResources(1, 1, &shapeNoiseTex);
+	dc->CSSetShaderResources(2, 1, &detailNoiseTex);
+	dc->CSSetShaderResources(3, 1, &weatherMap);
+	dc->CSSetShaderResources(4, 1, &blueNoise);
+	dc->CSSetShaderResources(5, 1, &previousFrame);
 	dc->CSSetUnorderedAccessViews(0, 1, &uavTexAccess, 0);
 
 	// Set the sampler inside the shader
@@ -164,7 +163,6 @@ void CloudMarcherShader::unbind(ID3D11DeviceContext* dc)
 	dc->CSSetShaderResources(3, 1, nullSRV);
 	dc->CSSetShaderResources(4, 1, nullSRV);
 	dc->CSSetShaderResources(5, 1, nullSRV);
-	dc->CSSetShaderResources(6, 1, nullSRV);
 
 	// Unbind output from compute shader
 	ID3D11UnorderedAccessView* nullUAV[] = { NULL };

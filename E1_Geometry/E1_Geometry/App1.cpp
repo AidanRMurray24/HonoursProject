@@ -26,7 +26,6 @@ App1::App1()
 
 	// Render textures
 	sceneRT = nullptr;
-	sceneDepthRT = nullptr;
 	cloudFragRT = nullptr;
 
 	// Lights
@@ -197,7 +196,6 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 
 	// Initialise Render Textures
 	sceneRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 1000.f);
-	sceneDepthRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 1000.f);
 	cloudFragRT = new RenderTexture(renderer->getDevice(), screenWidth, screenHeight, 0.1f, 1000.f);
 
 	// Initialise scene objects
@@ -220,7 +218,6 @@ App1::~App1()
 
 	// Render Textures
 	CLEAN_POINTER(sceneRT);
-	CLEAN_POINTER(sceneDepthRT);
 
 	// Timers
 	CLEAN_POINTER(cloudMarcherShaderTimer);
@@ -356,20 +353,6 @@ void App1::GeometryPass()
 	renderer->resetViewport();
 }
 
-void App1::DepthPass()
-{
-	// Set the render target to the render texture
-	sceneDepthRT->setRenderTarget(renderer->getDeviceContext());
-	sceneDepthRT->clearRenderTarget(renderer->getDeviceContext(), 1, 0, 0, 1.0f);
-
-	if (showTerrain)
-		terrainPlane->RenderDepthFromCamera();
-
-	// Set back buffer as render target and reset view port.
-	renderer->setBackBufferRenderTarget();
-	renderer->resetViewport();
-}
-
 void App1::CloudMarchPass()
 {
 	CloudMarcherShader* shader = SystemParams::GetInstance().GetAssets().cloudMarcherShader;
@@ -377,7 +360,7 @@ void App1::CloudMarchPass()
 	// Generate clouds
 	if (usePerlinNoise)
 	{
-		shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->perlinWorleyShader->getSRV(), assets->detailNoiseGenShader->getSRV(), assets->weatherMapShader->getSRV(), assets->blueNoiseTexture, renderer->getProjectionMatrix(), cloudContainer);
+		shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), assets->perlinWorleyShader->getSRV(), assets->detailNoiseGenShader->getSRV(), assets->weatherMapShader->getSRV(), assets->blueNoiseTexture, renderer->getProjectionMatrix(), cloudContainer);
 		
 		if (recordTimeTaken)
 			cloudMarcherShaderTimer->StartTimer();
@@ -392,7 +375,7 @@ void App1::CloudMarchPass()
 	}
 	else
 	{
-		shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), sceneDepthRT->getShaderResourceView(), assets->shapeNoiseGenShader->getSRV(), assets->detailNoiseGenShader->getSRV(), assets->weatherMapShader->getSRV(), assets->blueNoiseTexture, renderer->getProjectionMatrix(), cloudContainer);
+		shader->setShaderParameters(renderer->getDeviceContext(), sceneRT->getShaderResourceView(), assets->shapeNoiseGenShader->getSRV(), assets->detailNoiseGenShader->getSRV(), assets->weatherMapShader->getSRV(), assets->blueNoiseTexture, renderer->getProjectionMatrix(), cloudContainer);
 		
 		if (recordTimeTaken)
 			cloudMarcherShaderTimer->StartTimer();
@@ -413,7 +396,6 @@ void App1::ReprojectionPass()
 	currentInvViewProjMatrix = XMMatrixInverse(nullptr, XMMatrixMultiply(camera->getViewMatrix(), renderer->getProjectionMatrix()));
 
 	shader->setShaderParameters(renderer->getDeviceContext(), assets->cloudMarcherShader->getSRV(), assets->cloudMarcherShader->getPreviousTex(), XMMatrixTranspose(oldViewProjMatrix), XMMatrixTranspose(currentInvViewProjMatrix), reprojectionFrameCounter);
-	//shader->setShaderParameters(renderer->getDeviceContext(), assets->cloudMarcherShader->getSRV(), assets->cloudMarcherShader->getPreviousTex(), oldViewProjMatrix, currentInvViewProjMatrix, reprojectionFrameCounter);
 	shader->compute(renderer->getDeviceContext(), ceil((int)(cloudTextureRes.x / 4.0f)), ceil((int)(cloudTextureRes.y / 4.0f)), 1);
 	shader->unbind(renderer->getDeviceContext());
 
