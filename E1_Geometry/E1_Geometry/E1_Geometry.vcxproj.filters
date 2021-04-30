@@ -48,9 +48,6 @@
     <ClCompile Include="CloudMarcherShader.cpp">
       <Filter>Source Files\Shaders</Filter>
     </ClCompile>
-    <ClCompile Include="DepthShader.cpp">
-      <Filter>Source Files\Shaders</Filter>
-    </ClCompile>
     <ClCompile Include="SceneObject.cpp">
       <Filter>Source Files\SceneObjects</Filter>
     </ClCompile>
@@ -93,9 +90,6 @@
       <Filter>Header Files\Shaders</Filter>
     </ClInclude>
     <ClInclude Include="CloudMarcherShader.h">
-      <Filter>Header Files\Shaders</Filter>
-    </ClInclude>
-    <ClInclude Include="DepthShader.h">
       <Filter>Header Files\Shaders</Filter>
     </ClInclude>
     <ClInclude Include="SceneObject.h">
@@ -158,12 +152,6 @@
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="shaders\cloudMarcher_cs.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\depth_ps.hlsl">
-      <Filter>Resource Files</Filter>
-    </FxCompile>
-    <FxCompile Include="shaders\depth_vs.hlsl">
       <Filter>Resource Files</Filter>
     </FxCompile>
     <FxCompile Include="shaders\perlinNoise_cs.hlsl">

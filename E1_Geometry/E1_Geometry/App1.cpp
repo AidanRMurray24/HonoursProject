@@ -8,7 +8,6 @@
 #include "TextureShader.h"
 #include "WorleyNoiseShader.h"
 #include "CloudMarcherShader.h"
-#include "DepthShader.h"
 #include "PerlinNoiseShader.h"
 #include "PerlinWorleyShader.h"
 #include "WeatherMapShader.h"
@@ -50,6 +49,13 @@ App1::App1()
 	sliceVal = 0;
 	blueNoiseOffsetStrength = 6.f;
 	noiseOrthoMeshRes = 256;
+	shapeWeights[0] = 0;
+	shapeWeights[1] = 0;
+	shapeWeights[2] = 0;
+	shapeWeights[3] = 0;
+	detailWeights[0] = 0;
+	detailWeights[1] = 0;
+	detailWeights[2] = 0;
 
 	// Cloud Settings
 	globalCoverage = 0.5f;
@@ -617,7 +623,6 @@ void App1::LoadAssets(HWND hwnd)
 	assets.shapeNoiseGenShader = new WorleyNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.detailNoiseGenShader = new WorleyNoiseShader(device, hwnd, detailNoiseGenTexRes, detailNoiseGenTexRes, detailNoiseGenTexRes);
 	assets.cloudMarcherShader = new CloudMarcherShader(device, hwnd, cloudTextureRes.x, cloudTextureRes.y, camera, light);
-	assets.depthShader = new DepthShader(device, hwnd);
 	assets.perlinNoiseShader = new PerlinNoiseShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.perlinWorleyShader = new PerlinWorleyShader(device, hwnd, shapeNoiseGenTexRes, shapeNoiseGenTexRes, shapeNoiseGenTexRes);
 	assets.weatherMapShader = new WeatherMapShader(device, hwnd, weatherMapTexRes, weatherMapTexRes);

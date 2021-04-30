@@ -4,7 +4,6 @@
 
 // Shaders
 #include "ManipulationShader.h"
-#include "DepthShader.h"
 
 TerrainPlane::TerrainPlane() : SceneObject()
 {
@@ -31,16 +30,4 @@ void TerrainPlane::Render(Light* light)
 	GetMesh()->sendData(deviceContext);
 	shader->setShaderParameters(deviceContext, GetTransform(), cam->getViewMatrix(), projectionMatrix, terrainColTexture, terrainHMTexture, light);
 	shader->render(deviceContext, GetMesh()->getIndexCount());
-}
-
-void TerrainPlane::RenderDepthFromCamera()
-{
-	ID3D11DeviceContext* deviceContext = SystemParams::GetInstance().GetRenderer()->getDeviceContext();
-	XMMATRIX projectionMatrix = SystemParams::GetInstance().GetRenderer()->getProjectionMatrix();
-	FPCamera* cam = SystemParams::GetInstance().GetMainCamera();
-	Assets& assets = SystemParams::GetInstance().GetAssets();
-
-	GetMesh()->sendData(deviceContext);
-	assets.depthShader->setShaderParameters(deviceContext, GetTransform(), cam->getViewMatrix(), projectionMatrix, true);
-	assets.depthShader->render(deviceContext, GetMesh()->getIndexCount());
 }

@@ -10,7 +10,7 @@ public:
 	virtual void Init();
 	virtual void Update(float deltaTime);
 	virtual void Render();
-	virtual void RenderDepthFromCamera();
+
 
 	// Getters
 	inline XMFLOAT3 GetPosition() { return position; }

@@ -13,7 +13,6 @@ struct Assets
 	class WorleyNoiseShader* detailNoiseGenShader = nullptr;
 	class TextureShader* tex2DShader = nullptr;
 	class TextureShader* tex3DShader = nullptr;
-	class DepthShader* depthShader = nullptr;
 	class PerlinNoiseShader* perlinNoiseShader = nullptr;
 	class PerlinWorleyShader* perlinWorleyShader = nullptr;
 	class WeatherMapShader* weatherMapShader = nullptr;
@@ -40,7 +39,6 @@ struct Assets
 		CLEAN_POINTER(detailNoiseGenShader);
 		CLEAN_POINTER(tex2DShader);
 		CLEAN_POINTER(tex3DShader);
-		CLEAN_POINTER(depthShader);
 		CLEAN_POINTER(perlinNoiseShader);
 		CLEAN_POINTER(perlinWorleyShader);
 		CLEAN_POINTER(weatherMapShader);

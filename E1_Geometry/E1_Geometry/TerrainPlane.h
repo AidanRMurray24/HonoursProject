@@ -9,7 +9,6 @@ public:
 	~TerrainPlane();
 
 	void Render(Light* light);
-	void RenderDepthFromCamera();
 
 private:
 };

@@ -5,7 +5,6 @@
 
 // Shaders
 #include "TextureShader.h"
-#include "DepthShader.h"
 
 CloudContainer::CloudContainer() : SceneObject()
 {
