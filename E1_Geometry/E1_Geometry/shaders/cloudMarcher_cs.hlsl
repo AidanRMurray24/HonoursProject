@@ -298,7 +298,6 @@ void main( int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 
     uv = uv * 2 - 1;
     uv *= float2(1, -1);
 
-
     // Calculate the ray origin and direction
     Ray cameraRay = CreateCameraRay(uv);
     float3 ro = cameraRay.origin;

@@ -32,32 +32,41 @@ void main(int3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex, int3 g
     }
 
     // Get the UVs of the screen
-    double2 resolution = double2(0, 0);
+    float2 resolution = float2(0, 0);
     Result.GetDimensions(resolution.x, resolution.y);
-    double2 uv = (id.xy / resolution) * 2.0f - 1.0f;
+    float2 uv = (id.xy / resolution) * 2.0f - 1.0f;
 
     // Convert the the max depth point at this current uv coord to world space
-    double4 depthPos = double4(uv, 1.0f, 1.0f); // float.z is 1.0 as it is assumed to be at max depth
-    double4 worldPos = mul(depthPos, currentInvViewProj);
+    float4 depthPos = float4(uv, 1.0f, 1.0f); // float.z is 1.0 as it is assumed to be at max depth
+    float4 worldPos = mul(depthPos, currentInvViewProj);
     worldPos /= worldPos.w;
 
     // Convert the current world space coord back to screen space using the view-projection matrix from the last frame
-    double4 previousPos = mul(worldPos, oldviewProjMatrix);
+    float4 previousPos = mul(worldPos, oldviewProjMatrix);
     previousPos /= previousPos.w;
-    double2 oldUV = previousPos.xy * 0.5f + 0.5f;
-    
-    // Set to black if trying to sample from edge of screen
-    if (oldUV.x < 0.0f || oldUV.x > 1.0f || oldUV.y < 0.0f || oldUV.y > 1.0f)
+    float2 oldUV = previousPos.xy * 0.5f + 0.5f;
+
+    uv = id.xy / resolution;
+    float2 motionVec = oldUV - uv;
+    float motionVecLength = length(motionVec);
+    float motionVecN = normalize(motionVec);
+
+    int numSteps = 5;
+    float stepSize = motionVecLength / (float)numSteps;
+    float4 colourSample = 0;
+    for (int i = 0; i < numSteps; i++)
     {
-        //// Calculate the dispatch ID for this threads current generated pixel
-        //uint3 groupThreadID = uint3((uint)((float)renderedPixelGroupIndex % NUM_THREADS), (uint)((float)renderedPixelGroupIndex / NUM_THREADS), 0);
-        //uint3 dispatchID = (groupID * uint3(NUM_THREADS, NUM_THREADS, 1) + groupThreadID);
+        // Sample a point along the motion vector
+        float2 samplePoint = uv + (motionVecN * i * stepSize);
 
-        Result[id.xy] = float4(0, 0, 0, 0);
-        return;
+        // Clamp values between 0 and 1
+        samplePoint.x = max(min(samplePoint.x, 1), 0);
+        samplePoint.y = max(min(samplePoint.y, 1), 0);
+
+        // Use the sample point to sample the previous frame
+        colourSample += previousFrameTex.SampleLevel(sampler0, samplePoint, 0);
     }
+    colourSample /= numSteps;
 
-    float4 colour = previousFrameTex.SampleLevel(sampler0, oldUV, 0);
-
-    Result[id.xy] = colour;
+    Result[id.xy] = colourSample;
 }

@@ -79,7 +79,7 @@
       <Filter>Source Files\Shaders</Filter>
     </ClCompile>
     <ClCompile Include="TemporalReprojectionShader.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Shaders</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -135,7 +135,7 @@
       <Filter>Header Files\Tools</Filter>
     </ClInclude>
     <ClInclude Include="TemporalReprojectionShader.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Shaders</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
