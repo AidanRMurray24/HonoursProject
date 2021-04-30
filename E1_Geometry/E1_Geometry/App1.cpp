@@ -86,8 +86,6 @@ App1::App1()
 	weatherMapTexRes = 128;
 	weatherChannelIntensities[0] = 0.5f;
 	weatherChannelIntensities[1] = 0.5f;
-	weatherChannelIntensities[2] = 0;
-	weatherChannelIntensities[3] = 0;
 
 	// Terrain settings
 	showTerrain = false;
@@ -495,7 +493,7 @@ void App1::gui()
 
 	// Build UI
 	ImGui::Text("FPS: %.2f", timer->getFPS());
-	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
+	//ImGui::Checkbox("Wireframe mode", &wireframeToggle);
 	ImGui::Checkbox("Show Terrain", &showTerrain);
 
 	//ImGui::ShowDemoWindow();
@@ -539,21 +537,8 @@ void App1::gui()
 		{
 			ImGui::SliderFloat("Global Coverage", &globalCoverage, 0, 1);
 			ImGui::SliderFloat("DensityMultiplier", &densityMultiplier, 1, 10);
-			ImGui::SliderInt("DensitySteps", &densitySteps, 0, 1000);
-			ImGui::SliderFloat("StepSize", &stepSize, 0, 10);
 			ImGui::SliderFloat("EdgeFadePercent", &edgeFadePercent, 0, 1);
 		}
-		if (ImGui::CollapsingHeader("Optimisation Settings"))
-		{
-			ImGui::SliderFloat("BlueNoise Strength", &blueNoiseOffsetStrength, 0, 10);
-			if (ImGui::Button("Record Compute Time"))
-				recordTimeTaken = true;
-			ImGui::Text("Compute-time(ms): %.5f", (timetaken * 1000.0));
-			ImGui::Checkbox("Temporal Reprojection", &useTemporalReprojection);
-		}
-		cloudShader->SetBlueNoiseStrength(blueNoiseOffsetStrength);
-		cloudShader->SetTemporalReprojection(useTemporalReprojection);
-
 		ImGui::EndChild();
 	}
 	cloudShader->SetShapeNoiseOffset(shapeNoiseTexOffsetArray[0], shapeNoiseTexOffsetArray[1], shapeNoiseTexOffsetArray[2]);
@@ -562,8 +547,6 @@ void App1::gui()
 	cloudShader->SetDetailNoiseScale(detailNoiseTexScale);
 	cloudShader->SetDensityThreshold(globalCoverage);
 	cloudShader->SetDensityMultiplier(densityMultiplier);
-	cloudShader->SetDensitySteps(densitySteps);
-	cloudShader->SetStepSize(stepSize);
 	cloudShader->SetEdgeFadePercentage(edgeFadePercent);
 
 	// Light Settings
@@ -572,7 +555,6 @@ void App1::gui()
 		ImGui::BeginChild("3", ImVec2(0, 150), true, ImGuiWindowFlags_None);
 
 		ImGui::SliderFloat("CloudBrightness", &cloudBrightness, 0, 1);
-		ImGui::SliderInt("LightSteps", &lightSteps, 0, 100);
 
 		if (ImGui::CollapsingHeader("Colour"))
 		{
@@ -595,8 +577,6 @@ void App1::gui()
 			ImGui::SliderFloat("In Out Blend", &scatterSettings.inOutScatterBlend, 0, 1);
 			ImGui::SliderFloat("Silver Lining Intensity", &scatterSettings.silverLiningIntensity, 0, 50);
 			ImGui::SliderFloat("Silver Lining Exponent", &scatterSettings.silverLiningExponent, 0, 50);
-			ImGui::SliderFloat("Out Scatter Ambient", &scatterSettings.outScatterAmbient, 0, 1);
-			ImGui::SliderFloat("Attenuation Clamp", &scatterSettings.attenuationClamp, 0, 1);
 		}
 
 		ImGui::EndChild();
@@ -604,21 +584,38 @@ void App1::gui()
 	cloudShader->SetLightAbsTowardsSun(lightAbsTowardsSun);
 	cloudShader->SetLightAbsThroughCloud(lightAbsThroughCloud);
 	cloudShader->SetCloudBrightness(cloudBrightness);
-	cloudShader->SetLightMarchSteps(lightSteps);
 	cloudShader->SetScatterSettings(scatterSettings);
 
 	// Weather Map settings
 	if (ImGui::CollapsingHeader("Weather Map Settings"))
 	{
 		ImGui::Checkbox("Show Weather Map", &showWeatherMap);
-		ImGui::SliderFloat("CoverageTexScale", &coverageTexSettings.scale, 1, 1000);
-		ImGui::SliderFloat("HeightTexScale", &heightTexSettings.scale, 1, 1000);
-		ImGui::SliderFloat4("Channel Intensities", weatherChannelIntensities, 0, 1);
+		ImGui::SliderFloat("CoverageTexScale(RED)", &coverageTexSettings.scale, 1, 1000);
+		ImGui::SliderFloat("HeightTexScale(GREEN)", &heightTexSettings.scale, 1, 1000);
+		ImGui::SliderFloat2("Channel Intensities", weatherChannelIntensities, 0, 1);
 	}
 	coverageTexSettings.intensity = weatherChannelIntensities[0];
 	heightTexSettings.intensity = weatherChannelIntensities[1];
 	cloudShader->SetWeatherMapTexSettings(coverageTexSettings, TextureChannel::RED);
 	cloudShader->SetWeatherMapTexSettings(heightTexSettings, TextureChannel::GREEN);
+
+	// Optimisation settings
+	if (ImGui::CollapsingHeader("Optimisation Settings"))
+	{
+		ImGui::SliderInt("DensitySteps", &densitySteps, 0, 1000);
+		ImGui::SliderInt("LightSteps", &lightSteps, 0, 100);
+		ImGui::SliderFloat("StepSize", &stepSize, 0, 10);
+		ImGui::SliderFloat("BlueNoise Strength", &blueNoiseOffsetStrength, 0, 10);
+		if (ImGui::Button("Record Compute Time"))
+			recordTimeTaken = true;
+		ImGui::Text("Compute-time(ms): %.5f", (timetaken * 1000.0));
+		ImGui::Checkbox("Temporal Reprojection", &useTemporalReprojection);
+	}
+	cloudShader->SetDensitySteps(densitySteps);
+	cloudShader->SetLightMarchSteps(lightSteps);
+	cloudShader->SetStepSize(stepSize);
+	cloudShader->SetBlueNoiseStrength(blueNoiseOffsetStrength);
+	cloudShader->SetTemporalReprojection(useTemporalReprojection);
 
 	// Render UI
 	ImGui::Render();

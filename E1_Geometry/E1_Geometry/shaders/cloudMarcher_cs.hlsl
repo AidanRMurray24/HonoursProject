@@ -41,8 +41,8 @@ cbuffer LightBuffer : register(b3)
     float4 lightPos;
     float4 lightDiffuse;
     float4 lightAbsorptionData; // Absorption to sun = x, Absorption through cloud = y, Cloud Brightness = z, Marching steps = w
-    float4 inOutScatterSettings; // inScatter = x, outScatter = y, inOutScatterBlend = z, outScatterAmbient = w
-    float4 attenuationSilverLiningAndExponent; // Attenuation clamp = x, silver lining intensity = y, silver lining exponent = z
+    float4 inOutScatterSettings; // inScatter = x, outScatter = y, inOutScatterBlend = z
+    float4 silverLiningIntensityAndExponent; // silver lining intensity = x, silver lining exponent = y
 }
 
 cbuffer WeatherMapBuffer : register(b4)
@@ -221,8 +221,8 @@ float InOutScatter(float cosAngle)
     float inScatter = inOutScatterSettings.x;
     float outScatter = inOutScatterSettings.y;
     float inOutBlend = inOutScatterSettings.z;
-    float silverLiningIntensity = attenuationSilverLiningAndExponent.y;
-    float silverLiningExponent = attenuationSilverLiningAndExponent.z;
+    float silverLiningIntensity = silverLiningIntensityAndExponent.x;
+    float silverLiningExponent = silverLiningIntensityAndExponent.y;
 
     // Calculate the in scatter probability 
     float firstHG = HenyeyGreenstein(cosAngle, inScatter);
@@ -254,7 +254,7 @@ float LightMarch(float3 pos, float blueNoiseOffset)
     {
         // Sample the density at the current step
         pos += dirToLight * stepSize;
-        densityToSun += max(0, SampleDensity(pos) * stepSize);
+        densityToSun += max(0, saturate(SampleDensity(pos) * stepSize));
         dstTravelled += stepSize;
         stepCounter++;
     } 

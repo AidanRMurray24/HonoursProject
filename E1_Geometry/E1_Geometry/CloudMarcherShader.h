@@ -22,8 +22,6 @@ public:
 		float silverLiningIntensity = 10;
 		float silverLiningExponent = 20;
 		float inOutScatterBlend = .88f;
-		float outScatterAmbient = 0;
-		float attenuationClamp = 0;
 	};
 
 private:
@@ -58,8 +56,8 @@ private:
 		XMFLOAT4 position;
 		XMFLOAT4 colour;
 		XMFLOAT4 absorptionData; // Absorption to sun = x, Absorption through cloud = y, Cloud Brightness = z, Marching steps = w
-		XMFLOAT4 inOutScatterSettings; // inScatter = x, outScatter = y, inOutScatterBlend = z, outScatterAmbient = w
-		XMFLOAT4 attenuationAndSilverLining; // Attenuation clamp = x, silver lining intensity = y
+		XMFLOAT4 inOutScatterSettings; // inScatter = x, outScatter = y, inOutScatterBlend = z
+		XMFLOAT4 SilverLiningEffect; // silver lining intensity = x, silver lining exponent = y
 	};
 
 	struct WeatherMapBufferType

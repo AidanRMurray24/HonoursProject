@@ -79,10 +79,8 @@ void CloudMarcherShader::setShaderParameters(ID3D11DeviceContext* dc, ID3D11Shad
 	lightPtr->inOutScatterSettings.x = scatterSettings.inScatter;
 	lightPtr->inOutScatterSettings.y = scatterSettings.outScatter;
 	lightPtr->inOutScatterSettings.z = scatterSettings.inOutScatterBlend;
-	lightPtr->inOutScatterSettings.w = scatterSettings.outScatterAmbient;
-	lightPtr->attenuationAndSilverLining.x = scatterSettings.attenuationClamp;
-	lightPtr->attenuationAndSilverLining.y = scatterSettings.silverLiningIntensity;
-	lightPtr->attenuationAndSilverLining.z = scatterSettings.silverLiningExponent;
+	lightPtr->SilverLiningEffect.x = scatterSettings.silverLiningIntensity;
+	lightPtr->SilverLiningEffect.y = scatterSettings.silverLiningExponent;
 	dc->Unmap(lightBuffer, 0);
 
 	// Fill weather buffer

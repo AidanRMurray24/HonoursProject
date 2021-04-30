@@ -111,7 +111,7 @@ private:
 	int weatherMapTexRes;
 	CloudMarcherShader::WeatherMapTextureSettings coverageTexSettings;
 	CloudMarcherShader::WeatherMapTextureSettings heightTexSettings;
-	float weatherChannelIntensities[4];
+	float weatherChannelIntensities[2];
 
 	// Light Settings
 	float lightColour[3];
