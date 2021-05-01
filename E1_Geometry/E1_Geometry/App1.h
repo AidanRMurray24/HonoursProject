@@ -8,6 +8,9 @@
 #include <vector>
 #include "WorleyNoiseShader.h"
 #include "CloudMarcherShader.h"
+#include "PerformanceTest.h"
+#include "CoverageTest.h"
+#include "DistanceTest.h"
 
 // Scene objects
 #include "CloudContainer.h"
@@ -35,6 +38,8 @@ protected:
 
 private:
 	void LoadAssets(HWND hwnd);
+	void DrawMessageBox(std::string windowTag, std::string message, ImVec4 messageColour);
+	void StartTest(PerformanceTest* test);
 
 	class Assets* assets;
 
@@ -47,10 +52,6 @@ private:
 
 	// Timers
 	GPUTimer* cloudMarcherShaderTimer;
-	float elapsedTime;
-	double timetaken = 9;
-	bool recordTimeTaken;
-	bool isTimeRecorded;
 
 	// Scene objects
 	std::vector<SceneObject*> sceneObjects;
@@ -113,6 +114,19 @@ private:
 
 	// Light Settings
 	float lightColour[3];
+
+	// Testing
+	float elapsedTime;
+	double timetaken;
+	bool recordTimeTaken;
+	bool isTimeRecorded;
+	bool testStarted;
+	bool testFinished;
+	std::vector<float> computeTimes;
+	PerformanceTest* currentTest;
+	CoverageTest* coverageTest;
+	DistanceTest* distanceTest;
+	float estimatedTimeRemaining;
 };
 
 #endif

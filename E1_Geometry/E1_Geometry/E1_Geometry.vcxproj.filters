@@ -31,6 +31,12 @@
     <Filter Include="Source Files\Tools">
       <UniqueIdentifier>{e8f0cb3f-053d-4ab0-8331-c80e00933c16}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Tools\Tests">
+      <UniqueIdentifier>{3d4ac8db-cbf8-4438-9f75-3022062fc270}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Tools\Tests">
+      <UniqueIdentifier>{c10da50e-118e-4286-b093-13ec15c55d4d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App1.cpp">
@@ -77,6 +83,18 @@
     </ClCompile>
     <ClCompile Include="TemporalReprojectionShader.cpp">
       <Filter>Source Files\Shaders</Filter>
+    </ClCompile>
+    <ClCompile Include="PerformanceTest.cpp">
+      <Filter>Source Files\Tools\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="CoverageTest.cpp">
+      <Filter>Source Files\Tools\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="DistanceTest.cpp">
+      <Filter>Source Files\Tools\Tests</Filter>
+    </ClCompile>
+    <ClCompile Include="StepSizeTest.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -130,6 +148,18 @@
     </ClInclude>
     <ClInclude Include="TemporalReprojectionShader.h">
       <Filter>Header Files\Shaders</Filter>
+    </ClInclude>
+    <ClInclude Include="PerformanceTest.h">
+      <Filter>Header Files\Tools\Tests</Filter>
+    </ClInclude>
+    <ClInclude Include="CoverageTest.h">
+      <Filter>Header Files\Tools\Tests</Filter>
+    </ClInclude>
+    <ClInclude Include="DistanceTest.h">
+      <Filter>Header Files\Tools\Tests</Filter>
+    </ClInclude>
+    <ClInclude Include="StepSizeTest.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

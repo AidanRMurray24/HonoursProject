@@ -31,11 +31,7 @@ App1::App1()
 	light = nullptr;
 
 	// Timers
-	elapsedTime = 0;
-	timetaken = 9;
 	cloudMarcherShaderTimer = nullptr;
-	recordTimeTaken = false;
-	isTimeRecorded = false;
 
 	// Noise data
 	shapeNoiseGenTexRes = 128;
@@ -94,6 +90,18 @@ App1::App1()
 
 	// Terrain settings
 	showTerrain = false;
+
+	// Testing
+	elapsedTime = 0;
+	timetaken = 9;
+	recordTimeTaken = false;
+	isTimeRecorded = false;
+	testStarted = false;
+	testFinished = false;
+	currentTest = nullptr;
+	coverageTest = nullptr;
+	distanceTest = nullptr;
+	estimatedTimeRemaining = 0;
 }
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
@@ -211,6 +219,11 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	sceneObjects.push_back(terrainPlane);
 
 	oldViewProjMatrix = XMMatrixMultiply(camera->getViewMatrix(), renderer->getProjectionMatrix());
+
+	// Initailise tests
+	coverageTest = new CoverageTest(&globalCoverage, camera, cloudContainer);
+	distanceTest = new DistanceTest(camera, cloudContainer);
+	currentTest = coverageTest;
 }
 
 
@@ -227,6 +240,10 @@ App1::~App1()
 
 	// Timers
 	CLEAN_POINTER(cloudMarcherShaderTimer);
+
+	// Tests
+	CLEAN_POINTER(coverageTest);
+	CLEAN_POINTER(distanceTest);
 
 	// Scene Objects
 	for (SceneObject* s : sceneObjects)
@@ -255,17 +272,50 @@ bool App1::frame()
 		return false;
 	}
 
-	// Record the compute time of the cloud marcher shader
-	if (isTimeRecorded)
+	// If testing has started, start recording the compute time until there are 100 entries
+	if (testStarted && isTimeRecorded)
 	{
+		estimatedTimeRemaining -= timer->getTime();
 		elapsedTime += timer->getTime();
-		if (elapsedTime > 0.5f)
+		if (elapsedTime > 0.4f)
 		{
 			elapsedTime = 0;
 			isTimeRecorded = false;
-			timetaken = cloudMarcherShaderTimer->GetTimeTaken();
+			computeTimes.push_back(cloudMarcherShaderTimer->GetTimeTaken());
+			if (computeTimes.size() < 10)
+				recordTimeTaken = true;
+			else
+			{
+				// Calculate the average compute time
+				float averageComputeTime = 0;
+				for (size_t i = 0; i < computeTimes.size(); i++)
+					averageComputeTime += computeTimes.at(i);
+				averageComputeTime /= computeTimes.size();
+
+				// Clear the compute times list
+				computeTimes.clear();
+				
+				// Add an entry to the preformance test list and check if we are done testing
+				testFinished = currentTest->UpdateEntries(averageComputeTime);
+				if (testFinished)
+					testStarted = false;
+				else
+					recordTimeTaken = true;
+			}
 		}
 	}
+
+	//// Record the compute time of the cloud marcher shader
+	//if (isTimeRecorded)
+	//{
+	//	elapsedTime += timer->getTime();
+	//	if (elapsedTime > 0.4f)
+	//	{
+	//		elapsedTime = 0;
+	//		isTimeRecorded = false;
+	//		timetaken = cloudMarcherShaderTimer->GetTimeTaken();
+	//	}
+	//}
 
 	// Increment the reprojection frame counter and keep it between 0 and 15
 	reprojectionFrameCounter += 1;
@@ -594,9 +644,6 @@ void App1::gui()
 		ImGui::SliderInt("LightSteps", &lightSteps, 0, 100);
 		ImGui::SliderFloat("StepSize", &stepSize, 0, 10);
 		ImGui::SliderFloat("BlueNoise Strength", &blueNoiseOffsetStrength, 0, 10);
-		if (ImGui::Button("Record Compute Time"))
-			recordTimeTaken = true;
-		ImGui::Text("Compute-time(ms): %.5f", (timetaken * 1000.0));
 		ImGui::Checkbox("Temporal Reprojection", &useTemporalReprojection);
 	}
 	cloudShader->SetDensitySteps(densitySteps);
@@ -604,6 +651,40 @@ void App1::gui()
 	cloudShader->SetStepSize(stepSize);
 	cloudShader->SetBlueNoiseStrength(blueNoiseOffsetStrength);
 	cloudShader->SetTemporalReprojection(useTemporalReprojection);
+
+	// Testing
+	if (ImGui::CollapsingHeader("Testing"))
+	{
+		if (ImGui::Button("Display Compute Time"))
+			recordTimeTaken = true;
+		ImGui::Text("Compute-time(ms): %.5f", timetaken);
+
+		if (ImGui::Button("Record Coverage Times"))
+			StartTest(coverageTest);
+
+		if (ImGui::Button("Record Distance Times"))
+			StartTest(distanceTest);
+
+		if (ImGui::Button("Record Step Size Times"))
+			StartTest(coverageTest);
+
+		if (ImGui::Button("Record Light Step Times"))
+			StartTest(coverageTest);
+
+		// Show the estimated time remaining if the test has started
+		if (testStarted)
+		{
+			ImGui::Separator();
+			ImGui::Text("Estimated Time Remaining(s): %.2f", estimatedTimeRemaining);
+		}
+	}
+
+	if (testFinished)
+	{
+		testFinished = false;
+		ImGui::OpenPopup("Testing");
+	}
+	DrawMessageBox("Testing", "Finished Testing!", ImVec4(0, 1, 0, 1));
 
 	// Render UI
 	ImGui::Render();
@@ -643,4 +724,34 @@ void App1::LoadAssets(HWND hwnd)
 	assets.terrainColourTexture = textureMgr->getTexture(L"TerrainColour");
 	assets.terrainHeightMapTexture = textureMgr->getTexture(L"TerrainHeightMap");
 	assets.blueNoiseTexture = textureMgr->getTexture(L"BlueNoiseTex");
+}
+
+void App1::DrawMessageBox(std::string windowTag, std::string message, ImVec4 messageColour)
+{
+	ImVec2 centre(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f);
+	ImGui::SetNextWindowPos(centre, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+	if (ImGui::BeginPopupModal(windowTag.c_str(), NULL, ImGuiWindowFlags_AlwaysAutoResize))
+	{
+		ImGui::TextColored(messageColour, "%s\n\n", message.c_str());
+		ImGui::Separator();
+
+		if (ImGui::Button("Okay", ImVec2(120, 0)))
+			ImGui::CloseCurrentPopup();
+		ImGui::SetItemDefaultFocus();
+		ImGui::EndPopup();
+	}
+}
+
+void App1::StartTest(PerformanceTest* test)
+{
+	// Return if a test has already started
+	if (testStarted)
+		return;
+
+	testStarted = true;
+	recordTimeTaken = true;
+	currentTest = test;
+	currentTest->StartTest();
+	estimatedTimeRemaining = currentTest->GetEstimatedTimeToComplete();
 }

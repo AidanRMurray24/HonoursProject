@@ -48,6 +48,6 @@ double GPUTimer::GetTimeTaken()
 	// Subtract the end timestamp value from the start timestamp value to get the number of ticks
 	UINT64 elapsedFrames = endData - startData;
 
-	// Divide the number of frames by the frequency to get the time taken in seconds
-	return (double)elapsedFrames / (double)disjointData.Frequency;
+	// Divide the number of frames by the frequency to get the time taken in milliseconds
+	return ((double)elapsedFrames / (double)disjointData.Frequency) * 1000.0f;
 }
