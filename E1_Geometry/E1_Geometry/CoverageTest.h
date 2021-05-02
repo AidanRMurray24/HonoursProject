@@ -9,6 +9,7 @@ public:
 	~CoverageTest();
 
 	void StartTest();
+	void CancelTest();
 	bool UpdateEntries(float averageComputeTime);
 	void SaveToFile();
 
@@ -18,5 +19,6 @@ private:
 	FPCamera* camera;
 	class CloudContainer* container;
 	float coverageIncrementAmount;
+	float originalVal;
 };
 

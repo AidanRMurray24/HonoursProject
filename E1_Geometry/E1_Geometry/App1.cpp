@@ -72,7 +72,7 @@ App1::App1()
 	cloudTextureRes = XMFLOAT2(0,0);
 
 	// Absorption settings
-	lightAbsTowardsSun = 0.84f;
+	lightAbsTowardsSun = 0.4f;
 	lightAbsThroughCloud = 0.84f;
 	cloudBrightness = 0.7f;
 	lightSteps = 4;
@@ -93,7 +93,7 @@ App1::App1()
 
 	// Testing
 	elapsedTime = 0;
-	timetaken = 9;
+	timetaken = 0;
 	recordTimeTaken = false;
 	isTimeRecorded = false;
 	testStarted = false;
@@ -101,7 +101,11 @@ App1::App1()
 	currentTest = nullptr;
 	coverageTest = nullptr;
 	distanceTest = nullptr;
+	stepSizeTest = nullptr;
+	lightStepsTest = nullptr;
 	estimatedTimeRemaining = 0;
+	timeBetweenRecordings = 0.4f;
+	numRecordingToAverage = 10;
 }
 
 void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHeight, Input *in, bool VSYNC, bool FULL_SCREEN)
@@ -122,6 +126,9 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	light->setPosition(0, 0, 0);
 	light->setDiffuseColour(1.0f, 0.9f, 0.8f, 1.0f);
 	light->setDirection(0.7f, -0.7f, 0.0f);
+	lightColour[0] = light->getDiffuseColour().x;
+	lightColour[1] = light->getDiffuseColour().y;
+	lightColour[2] = light->getDiffuseColour().z;
 
 	LoadAssets(hwnd);
 
@@ -223,6 +230,9 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int _screenWidth, int _screenHei
 	// Initailise tests
 	coverageTest = new CoverageTest(&globalCoverage, camera, cloudContainer);
 	distanceTest = new DistanceTest(camera, cloudContainer);
+	stepSizeTest = new StepSizeTest(&stepSize, camera, cloudContainer);
+	lightStepsTest = new LightStepsTest(&lightSteps, camera, cloudContainer);
+	reprojectionTest = new ReprojectionTest(&useTemporalReprojection, camera, cloudContainer);
 	currentTest = coverageTest;
 }
 
@@ -244,6 +254,9 @@ App1::~App1()
 	// Tests
 	CLEAN_POINTER(coverageTest);
 	CLEAN_POINTER(distanceTest);
+	CLEAN_POINTER(stepSizeTest);
+	CLEAN_POINTER(lightStepsTest);
+	CLEAN_POINTER(reprojectionTest);
 
 	// Scene Objects
 	for (SceneObject* s : sceneObjects)
@@ -272,17 +285,17 @@ bool App1::frame()
 		return false;
 	}
 
-	// If testing has started, start recording the compute time until there are 100 entries
+	// If testing has started, start recording the compute time until all entries have been recorded
 	if (testStarted && isTimeRecorded)
 	{
 		estimatedTimeRemaining -= timer->getTime();
 		elapsedTime += timer->getTime();
-		if (elapsedTime > 0.4f)
+		if (elapsedTime > timeBetweenRecordings)
 		{
 			elapsedTime = 0;
 			isTimeRecorded = false;
 			computeTimes.push_back(cloudMarcherShaderTimer->GetTimeTaken());
-			if (computeTimes.size() < 10)
+			if (computeTimes.size() < numRecordingToAverage)
 				recordTimeTaken = true;
 			else
 			{
@@ -305,17 +318,17 @@ bool App1::frame()
 		}
 	}
 
-	//// Record the compute time of the cloud marcher shader
-	//if (isTimeRecorded)
-	//{
-	//	elapsedTime += timer->getTime();
-	//	if (elapsedTime > 0.4f)
-	//	{
-	//		elapsedTime = 0;
-	//		isTimeRecorded = false;
-	//		timetaken = cloudMarcherShaderTimer->GetTimeTaken();
-	//	}
-	//}
+	// Record the compute time of the cloud marcher shader
+	if (isTimeRecorded && !testStarted)
+	{
+		elapsedTime += timer->getTime();
+		if (elapsedTime > timeBetweenRecordings)
+		{
+			elapsedTime = 0;
+			isTimeRecorded = false;
+			timetaken = cloudMarcherShaderTimer->GetTimeTaken();
+		}
+	}
 
 	// Increment the reprojection frame counter and keep it between 0 and 15
 	reprojectionFrameCounter += 1;
@@ -666,25 +679,50 @@ void App1::gui()
 			StartTest(distanceTest);
 
 		if (ImGui::Button("Record Step Size Times"))
-			StartTest(coverageTest);
+			StartTest(stepSizeTest);
 
 		if (ImGui::Button("Record Light Step Times"))
-			StartTest(coverageTest);
+			StartTest(lightStepsTest);
 
-		// Show the estimated time remaining if the test has started
-		if (testStarted)
-		{
-			ImGui::Separator();
-			ImGui::Text("Estimated Time Remaining(s): %.2f", estimatedTimeRemaining);
-		}
+		if (ImGui::Button("Record Temporal Reprojection Times"))
+			StartTest(reprojectionTest);
+
+		//// Show the estimated time remaining if the test has started
+		//if (testStarted)
+		//{
+		//	ImGui::Separator();
+		//	ImGui::Text("Estimated Time Remaining(s): %.2f", estimatedTimeRemaining);
+		//}
 	}
+
+	// Show the estimated time remaining if the test has started
+	if (testStarted)
+	{
+		ImVec2 centre(ImGui::GetIO().DisplaySize.x * 0.5f, ImGui::GetIO().DisplaySize.y * 0.5f);
+		ImGui::SetNextWindowPos(centre, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+		if (ImGui::BeginPopupModal("Testing", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+		{
+			ImGui::Text("Estimated Time Remaining(s): %.2f", estimatedTimeRemaining);
+			ImGui::Separator();
+
+			if (ImGui::Button("Cancel", ImVec2(120, 0)))
+			{
+				ImGui::CloseCurrentPopup();
+				CancelTest();
+			}
+			ImGui::SetItemDefaultFocus();
+			ImGui::EndPopup();
+		}
+	}	
 
 	if (testFinished)
 	{
+		ImGui::CloseCurrentPopup();
 		testFinished = false;
-		ImGui::OpenPopup("Testing");
+		ImGui::OpenPopup("Notice");
 	}
-	DrawMessageBox("Testing", "Finished Testing!", ImVec4(0, 1, 0, 1));
+	DrawMessageBox("Notice", "Finished Testing!", ImVec4(0, 1, 0, 1));
 
 	// Render UI
 	ImGui::Render();
@@ -716,11 +754,9 @@ void App1::LoadAssets(HWND hwnd)
 	assets.noiseGenOrthoMesh = new OrthoMesh(device, deviceContext, noiseOrthoMeshRes, noiseOrthoMeshRes);
 
 	// Initialise textures
-	textureMgr->loadTexture(L"brick", L"res/brick1.dds");
 	textureMgr->loadTexture(L"TerrainColour", L"res/TerrainColour.png");
 	textureMgr->loadTexture(L"TerrainHeightMap", L"res/TerrainHeightMap.png");
 	textureMgr->loadTexture(L"BlueNoiseTex", L"res/BlueNoiseTex.png");
-	assets.brickTexture = textureMgr->getTexture(L"brick");
 	assets.terrainColourTexture = textureMgr->getTexture(L"TerrainColour");
 	assets.terrainHeightMapTexture = textureMgr->getTexture(L"TerrainHeightMap");
 	assets.blueNoiseTexture = textureMgr->getTexture(L"BlueNoiseTex");
@@ -754,4 +790,14 @@ void App1::StartTest(PerformanceTest* test)
 	currentTest = test;
 	currentTest->StartTest();
 	estimatedTimeRemaining = currentTest->GetEstimatedTimeToComplete();
+	ImGui::OpenPopup("Testing");
+}
+
+void App1::CancelTest()
+{
+	currentTest->CancelTest();
+	testStarted = false;
+	testFinished = false;
+	recordTimeTaken = false;
+	isTimeRecorded = false;
 }

@@ -25,7 +25,6 @@ struct Assets
 	class OrthoMesh* noiseGenOrthoMesh = nullptr;
 
 	// Texture
-	class ID3D11ShaderResourceView* brickTexture = nullptr;
 	class ID3D11ShaderResourceView* terrainColourTexture = nullptr;
 	class ID3D11ShaderResourceView* terrainHeightMapTexture = nullptr;
 	class ID3D11ShaderResourceView* blueNoiseTexture = nullptr;
@@ -51,7 +50,6 @@ struct Assets
 		CLEAN_POINTER(noiseGenOrthoMesh);
 
 		// Textures
-		brickTexture = nullptr;
 		terrainColourTexture = nullptr;
 		terrainHeightMapTexture = nullptr;
 	}

@@ -7,10 +7,12 @@ StepSizeTest::StepSizeTest(float* _stepSize, FPCamera* _cam, CloudContainer* _co
 	stepSize = _stepSize;
 	camera = _cam;
 	container = _container;
-	numTimesToRecord = 10;
+	numTimesToRecord = 20;
 	maxStepSize = 10.0f;
 	fileName = "StepSizeTest.csv";
 	incrementSize = maxStepSize / numTimesToRecord;
+	estimatedTimeToComplete = 10 * numTimesToRecord * 0.4f;
+	originalVal = *stepSize;
 }
 
 StepSizeTest::~StepSizeTest()
@@ -25,10 +27,16 @@ void StepSizeTest::StartTest()
 
 	// Set the camera's position and look at
 	XMFLOAT3 containerPos = container->GetPosition();
-	camera->setPosition(containerPos.x, containerPos.y, containerPos.z);
-	camera->setRotation(90, 0, 0);
+	camera->setPosition(containerPos.x, containerPos.y - 100, containerPos.z);
+	camera->setRotation(-90, 0, 0);
 
+	originalVal = *stepSize;
 	*stepSize = 0;
+}
+
+void StepSizeTest::CancelTest()
+{
+	*stepSize = originalVal;
 }
 
 bool StepSizeTest::UpdateEntries(float averageComputeTime)
@@ -40,7 +48,7 @@ bool StepSizeTest::UpdateEntries(float averageComputeTime)
 	// If the distance has reached the max distance then the testing has finished
 	if (*stepSize >= maxStepSize)
 	{
-		*stepSize = maxStepSize;
+		*stepSize = originalVal;
 		SaveToFile();
 		return true;
 	}
@@ -54,7 +62,7 @@ bool StepSizeTest::UpdateEntries(float averageComputeTime)
 void StepSizeTest::SaveToFile()
 {
 	// Get the file path
-	std::string filePath = folderPath.append(fileName);
+	std::string filePath = folderPath + fileName;
 
 	// Create the file at the file path's location
 	std::ofstream outputFile(filePath);

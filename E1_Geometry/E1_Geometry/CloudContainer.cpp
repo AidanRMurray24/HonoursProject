@@ -27,9 +27,8 @@ void CloudContainer::Render()
 	XMMATRIX projectionMatrix = SystemParams::GetInstance().GetRenderer()->getProjectionMatrix();
 	FPCamera* cam = SystemParams::GetInstance().GetMainCamera();
 	Assets& assets = SystemParams::GetInstance().GetAssets();
-	ID3D11ShaderResourceView* texture = assets.brickTexture;
 
 	GetMesh()->sendData(deviceContext);
-	assets.tex2DShader->setShaderParameters(deviceContext, GetTransform(), cam->getViewMatrix(), projectionMatrix, texture);
+	assets.tex2DShader->setShaderParameters(deviceContext, GetTransform(), cam->getViewMatrix(), projectionMatrix, NULL);
 	assets.tex2DShader->render(deviceContext, GetMesh()->getIndexCount());
 }

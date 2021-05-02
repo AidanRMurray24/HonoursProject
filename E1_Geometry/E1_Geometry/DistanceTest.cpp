@@ -7,7 +7,7 @@ DistanceTest::DistanceTest(FPCamera* _cam, CloudContainer* _container) : Perform
 	camera = _cam;
 	container = _container;
 	currentCameraDistance = 0;
-	numTimesToRecord = 10;
+	numTimesToRecord = 20;
 	maxDistance = 100;
 	fileName = "DistanceTest.csv";
 	distanceIncrement = maxDistance / numTimesToRecord;
@@ -27,7 +27,7 @@ void DistanceTest::StartTest()
 	// Set the camera's position and look at
 	XMFLOAT3 containerPos = container->GetPosition();
 	camera->setPosition(containerPos.x, containerPos.y, containerPos.z);
-	camera->setRotation(90, 0, 0);
+	camera->setRotation(-90, 0, 0);
 
 	currentCameraDistance = 0;
 }
@@ -51,7 +51,7 @@ bool DistanceTest::UpdateEntries(float averageComputeTime)
 
 	// Update the camera's position
 	XMFLOAT3 containerPos = container->GetPosition();
-	camera->setPosition(containerPos.x, containerPos.y + currentCameraDistance, containerPos.z);
+	camera->setPosition(containerPos.x, containerPos.y - currentCameraDistance, containerPos.z);
 
 	return false;
 }
@@ -59,7 +59,7 @@ bool DistanceTest::UpdateEntries(float averageComputeTime)
 void DistanceTest::SaveToFile()
 {
 	// Get the file path
-	std::string filePath = folderPath.append(fileName);
+	std::string filePath = folderPath + fileName;
 
 	// Create the file at the file path's location
 	std::ofstream outputFile(filePath);

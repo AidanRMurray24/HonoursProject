@@ -19,7 +19,7 @@ public:
 	{
 		float inScatter = 0.857f;
 		float outScatter = 0.278f;
-		float silverLiningIntensity = 10;
+		float silverLiningIntensity = 4.5f;
 		float silverLiningExponent = 20;
 		float inOutScatterBlend = .88f;
 	};

@@ -8,9 +8,10 @@ CoverageTest::CoverageTest(float* _coverage, FPCamera* _cam, CloudContainer* _co
 	camera = _cam;
 	container = _container;
 	fileName = "CoverageTest.csv";
-	numTimesToRecord = 10;
+	numTimesToRecord = 20;
 	coverageIncrementAmount = 1.0f / numTimesToRecord;
 	estimatedTimeToComplete = 10 * numTimesToRecord * 0.4f;
+	originalVal = *coverage;
 }
 
 CoverageTest::~CoverageTest()
@@ -25,11 +26,17 @@ void CoverageTest::StartTest()
 
 	// Set the camera's position and look at
 	XMFLOAT3 containerPos = container->GetPosition();
-	camera->setPosition(containerPos.x, containerPos.y - 20, containerPos.z);
-	camera->setRotation(90,0,0);
+	camera->setPosition(containerPos.x, containerPos.y - 100, containerPos.z);
+	camera->setRotation(-90,0,0);
 
 	// Set the coverage of the clouds to be 0 intially
+	originalVal = *coverage;
 	*coverage = 0;
+}
+
+void CoverageTest::CancelTest()
+{
+	*coverage = originalVal;
 }
 
 // Returns true if 
@@ -42,7 +49,7 @@ bool CoverageTest::UpdateEntries(float averageComputeTime)
 	// If the coverage has reached 1 then the testing has finished
 	if (*coverage >= 1)
 	{
-		*coverage = 1;
+		*coverage = originalVal;
 		SaveToFile();
 		return true;
 	}
@@ -56,7 +63,7 @@ bool CoverageTest::UpdateEntries(float averageComputeTime)
 void CoverageTest::SaveToFile()
 {
 	// Get the file path
-	std::string filePath = folderPath.append(fileName);
+	std::string filePath = folderPath + fileName;
 
 	// Create the file at the file path's location
 	std::ofstream outputFile(filePath);

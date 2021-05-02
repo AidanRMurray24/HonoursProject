@@ -9,6 +9,7 @@ public:
 	~PerformanceTest();
 
 	virtual void StartTest() {};
+	virtual void CancelTest() {};
 	virtual bool UpdateEntries(float averageComputeTime) { return true; };
 	virtual void SaveToFile() {};
 

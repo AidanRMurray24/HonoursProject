@@ -9,6 +9,7 @@ public:
 	~StepSizeTest();
 
 	void StartTest();
+	void CancelTest();
 	bool UpdateEntries(float averageComputeTime);
 	void SaveToFile();
 
@@ -19,5 +20,6 @@ private:
 	float maxStepSize;
 	float incrementSize;
 	std::vector<float> stepSizes;
+	float originalVal;
 };
 

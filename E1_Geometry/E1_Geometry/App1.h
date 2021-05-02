@@ -11,6 +11,9 @@
 #include "PerformanceTest.h"
 #include "CoverageTest.h"
 #include "DistanceTest.h"
+#include "StepSizeTest.h"
+#include "LightStepsTest.h"
+#include "ReprojectionTest.h"
 
 // Scene objects
 #include "CloudContainer.h"
@@ -40,6 +43,7 @@ private:
 	void LoadAssets(HWND hwnd);
 	void DrawMessageBox(std::string windowTag, std::string message, ImVec4 messageColour);
 	void StartTest(PerformanceTest* test);
+	void CancelTest();
 
 	class Assets* assets;
 
@@ -122,10 +126,15 @@ private:
 	bool isTimeRecorded;
 	bool testStarted;
 	bool testFinished;
+	float timeBetweenRecordings;
+	int numRecordingToAverage;
 	std::vector<float> computeTimes;
 	PerformanceTest* currentTest;
 	CoverageTest* coverageTest;
 	DistanceTest* distanceTest;
+	StepSizeTest* stepSizeTest;
+	LightStepsTest* lightStepsTest;
+	ReprojectionTest* reprojectionTest;
 	float estimatedTimeRemaining;
 };
 
